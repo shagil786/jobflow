@@ -8,6 +8,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.net.URLDecoder;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -291,6 +292,25 @@ class RestGmailApiClientTest {
                 .andRespond(withStatus(HttpStatus.BAD_GATEWAY).body("history list response secret"));
         assertFetchFailure(() -> historyFixture.client().listHistory("access-token", "history-1", "label-1", null), "history list response secret");
         historyFixture.server().verify();
+    }
+
+    @Test
+    void listMessagesUsesConfiguredEndpointAndPreservesDateWindowQuery() {
+        ClientFixture fixture = createClientFixture();
+        Instant from = Instant.parse("2026-08-14T00:00:00Z");
+        Instant to = Instant.parse("2026-08-21T00:00:00Z");
+        fixture.server().expect(request -> {
+            assertThat(request.getURI().getHost()).isEqualTo("gmail.example.test");
+            assertThat(request.getURI().getPath()).isEqualTo("/gmail/v1/users/me/messages");
+            MultiValueMap<String, String> query = parseQuery(request.getURI().getRawQuery());
+            assertThat(URLDecoder.decode(query.getFirst("q"), StandardCharsets.UTF_8)).isEqualTo(GmailApiClient.dateWindowQuery(from, to));
+            assertThat(query.getFirst("pageToken")).isEqualTo("page-2");
+        }).andRespond(withSuccess("{\"messages\":[],\"nextPageToken\":\"page-3\"}", MediaType.APPLICATION_JSON));
+
+        GmailApiClient.MessagePage page = fixture.client().listMessagesForWindow("access-token", from, to, "page-2");
+
+        assertThat(page.nextPageToken()).isEqualTo("page-3");
+        fixture.server().verify();
     }
 
     private static void assertFetchFailure(Runnable call, String rawResponse) {

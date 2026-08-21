@@ -49,6 +49,36 @@ class IngestionExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(error("CLASSIFICATION_REVIEW_CONFLICT", exception.getMessage(), request));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException exception, HttpServletRequest request) {
+        String code = exception.getMessage() == null ? "INVALID_REQUEST" : exception.getMessage();
+        HttpStatus status = switch (code) {
+            case "GMAIL_BACKFILL_ALREADY_ACTIVE" -> HttpStatus.CONFLICT;
+            case "GMAIL_CONNECTION_NOT_FOUND", "GMAIL_BACKFILL_NOT_FOUND" -> HttpStatus.NOT_FOUND;
+            default -> HttpStatus.BAD_REQUEST;
+        };
+        return ResponseEntity.status(status).body(error(code, safeMessage(code), request));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    ResponseEntity<ApiError> handleIllegalState(IllegalStateException exception, HttpServletRequest request) {
+        String code = exception.getMessage() == null ? "INVALID_STATE" : exception.getMessage();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error(code, safeMessage(code), request));
+    }
+
+    private static String safeMessage(String code) {
+        return switch (code) {
+            case "GMAIL_BACKFILL_ALREADY_ACTIVE" -> "A Gmail backfill is already active";
+            case "GMAIL_CONNECTION_NOT_FOUND" -> "Gmail connection not found";
+            case "GMAIL_BACKFILL_NOT_FOUND" -> "Gmail backfill not found";
+            case "IDEMPOTENCY_KEY_REQUIRED" -> "Idempotency-Key is required";
+            case "BACKFILL_OWNER_REQUIRED" -> "Backfill owner is required";
+            case "REVIEW_ITEMS_CURSOR_INVALID" -> "Review items cursor is invalid";
+            case "REVIEW_ITEMS_LIMIT_INVALID" -> "Review items limit must be between 1 and 100";
+            default -> "The request could not be completed";
+        };
+    }
+
     private static ApiError error(String code, String message, HttpServletRequest request) {
         return new ApiError(code, message, request.getHeader("X-Request-Id"));
     }

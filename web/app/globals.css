@@ -348,3 +348,41 @@ h1 { font-size: clamp(34px, 4.2vw, 57px); line-height: .98; letter-spacing: -.06
   .main, .orbit-line-one, .orbit-line-two, .sync-dot.connected { animation: none !important; }
   .welcome-panel:hover .orbit-center { transform: translate(-50%, -50%); }
 }
+
+/* Gmail import and review components. These states are rendered only from API data. */
+.gmail-backfill-status { margin: 0 0 16px; padding: 18px 21px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 7px 25px rgba(27, 59, 42, .035); }
+.gmail-backfill-status.is-active { border-color: #c9e2d0; background: linear-gradient(105deg, #f7fcf7, #ffffff); }
+.gmail-backfill-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.gmail-backfill-heading { display: flex; align-items: flex-start; gap: 11px; }
+.gmail-backfill-mark { display: grid; place-items: center; flex: 0 0 29px; width: 29px; height: 29px; border-radius: 9px; background: #e4f3e7; color: var(--forest); font-size: 15px; font-weight: 800; }
+.gmail-backfill-mark.failed { background: var(--red-soft); color: var(--red); }
+.gmail-backfill-mark.completed { background: var(--mint); color: var(--forest); }
+.gmail-backfill-mark.paused, .gmail-backfill-mark.cancelled { background: #f2eee4; color: var(--amber); }
+.gmail-backfill-status h2 { margin: 0; color: var(--ink); font-size: 15px; letter-spacing: -.025em; }
+.gmail-backfill-status .section-overline { margin: 0 0 4px; }
+.gmail-backfill-state { color: var(--forest); font-size: 9px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.gmail-backfill-description { margin: 12px 0 14px 40px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.gmail-backfill-progress { height: 6px; margin: 0 0 13px 40px; overflow: hidden; border-radius: 99px; background: #eaf0ea; }
+.gmail-backfill-progress span { display: block; height: 100%; border-radius: inherit; background: var(--forest); transition: width .35s ease; }
+.gmail-backfill-metrics { display: flex; flex-wrap: wrap; gap: 7px 18px; margin-left: 40px; color: var(--muted); font-size: 11px; }
+.gmail-backfill-metrics strong { color: var(--ink); font-size: 12px; }
+.gmail-backfill-error { margin: 13px 0 0 40px; color: var(--red); font-size: 11px; line-height: 1.4; }
+.gmail-backfill-status-empty { display: flex; align-items: center; gap: 11px; }
+.gmail-backfill-status-empty p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.gmail-review-item { display: flex; justify-content: space-between; gap: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+.gmail-review-item-main { min-width: 0; }
+.gmail-review-detail { margin-top: 5px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.gmail-review-buttons { display: flex; gap: 7px; }
+.gmail-review-buttons .primary-button, .gmail-review-buttons .outline-button, .gmail-review-item > .review-actions > .primary-button { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+.gmail-review-item .review-actions { align-items: flex-start; }
+
+@media (max-width: 640px) {
+  .gmail-backfill-status { padding: 16px; }
+  .gmail-backfill-description, .gmail-backfill-progress, .gmail-backfill-metrics, .gmail-backfill-error { margin-left: 0; }
+  .gmail-review-item { display: grid; gap: 13px; }
+  .gmail-review-item .review-actions, .gmail-review-buttons { width: 100%; }
+  .gmail-review-buttons > button { flex: 1; }
+  .gmail-review-item > .review-actions > .primary-button { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) { .gmail-backfill-progress span { transition: none; } }

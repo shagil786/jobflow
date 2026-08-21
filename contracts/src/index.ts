@@ -141,3 +141,38 @@ export interface JobCapturedEvent {
   occurredAt: string;
   payload: JobCaptureRequest;
 }
+
+export type BackfillMode = "AUTOMATIC" | "LABEL_SCOPED";
+export type BackfillRunStatus = "QUEUED" | "RUNNING" | "PAUSING" | "PAUSED" | "CANCELLING" | "CANCELLED" | "COMPLETED" | "FAILED";
+export type BackfillBatchStatus = "QUEUED" | "RUNNING" | "COMPLETED" | "FAILED" | "CANCELLED" | "DEAD_LETTERED";
+
+export interface GmailBackfillRequestedV1 {
+  eventId: string;
+  eventType: "GmailBackfillRequested.v1";
+  tenantId: string;
+  userId: string;
+  correlationId: string;
+  idempotencyKey: string;
+  occurredAt: string;
+  runId: string;
+  connectionId: string;
+  windowFrom: string;
+  windowTo: string;
+  mode: BackfillMode;
+}
+
+export interface GmailBackfillBatchV1 {
+  eventId: string;
+  eventType: "GmailBackfillBatch.v1";
+  tenantId: string;
+  userId: string;
+  correlationId: string;
+  runId: string;
+  batchId: string;
+  connectionId: string;
+  sequenceNo: number;
+  windowFrom: string;
+  windowTo: string;
+  attemptId: string;
+  occurredAt: string;
+}

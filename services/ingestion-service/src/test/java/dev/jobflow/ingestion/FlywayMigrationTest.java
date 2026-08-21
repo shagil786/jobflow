@@ -11,6 +11,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.flywaydb.core.Flyway;
 
 class FlywayMigrationTest {
@@ -47,6 +48,51 @@ class FlywayMigrationTest {
 
         assertThat(suggestionOrderingMigration.getContentAsString(StandardCharsets.UTF_8))
                 .containsIgnoringCase("row_id");
+    }
+
+    @Test
+    void backfillSchemaAndContractsAreVersionedWithoutRawContentOrTokens() throws IOException {
+        assertMigrationContains("V12__create_gmail_backfill_runs.sql", "create table if not exists gmail_backfill_runs", "run_id", "idempotency_key", "tenant_id", "user_id", "connection_id");
+        assertMigrationContains("V13__create_gmail_backfill_batches.sql", "create table if not exists gmail_backfill_batches", "batch_id", "run_id", "window_from", "window_to", "sequence_no");
+        assertMigrationContains("V14__create_gmail_message_candidates.sql", "create table if not exists gmail_message_candidates", "connection_id", "provider_message_id", "deterministic_signals_json");
+        assertMigrationContains("V15__link_review_items_to_candidates.sql", "alter table classification_reviews", "candidate_id", "foreign key");
+
+        assertThat(new FileSystemResource("../../contracts/events/gmail-backfill-requested.v1.json").exists()).isTrue();
+        assertThat(new FileSystemResource("../../contracts/events/gmail-backfill-batch.v1.json").exists()).isTrue();
+        String runs = new ClassPathResource("db/migration/V12__create_gmail_backfill_runs.sql").getContentAsString(StandardCharsets.UTF_8);
+        assertThat(runs).doesNotContainIgnoringCase("refresh_token").doesNotContainIgnoringCase("raw_body");
+        String candidates = new ClassPathResource("db/migration/V14__create_gmail_message_candidates.sql").getContentAsString(StandardCharsets.UTF_8);
+        assertThat(candidates).doesNotContainIgnoringCase("raw_body").doesNotContainIgnoringCase("refresh_token");
+    }
+
+    @Test
+    void backfillSchemaEnforcesOwnershipIdentityOrderingAndActiveRunUniqueness() throws Exception {
+        String url = "jdbc:h2:mem:flyway-backfill-schema;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
+        try (Connection connection = DriverManager.getConnection(url, "sa", ""); Statement statement = connection.createStatement()) {
+            Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").load().migrate();
+            assertThat(count(statement, "select count(*) from information_schema.tables where table_name in ('GMAIL_BACKFILL_RUNS','GMAIL_BACKFILL_BATCHES','GMAIL_MESSAGE_CANDIDATES')")).isEqualTo(3);
+            assertThat(count(statement, "select count(*) from information_schema.columns where table_name='CLASSIFICATION_REVIEWS' and column_name='CANDIDATE_ID'")).isEqualTo(1);
+
+            String connectionId = "11111111-1111-1111-1111-111111111111";
+            String runId = "22222222-2222-2222-2222-222222222222";
+            statement.executeUpdate("insert into gmail_connections (connection_id,user_id,tenant_id,email,refresh_token_ciphertext,last_history_id,connected_at,active) values ('" + connectionId + "','user-1','tenant-1','person@example.com','encrypted','history',current_timestamp,true)");
+            statement.executeUpdate("insert into gmail_backfill_runs (run_id,tenant_id,user_id,connection_id,idempotency_key,mode,status,requested_from,requested_to,batch_size_days,correlation_id,created_at,updated_at,active_owner_key) values ('" + runId + "','tenant-1','user-1','" + connectionId + "','idem-1','AUTOMATIC','QUEUED',dateadd('DAY',-1,current_timestamp),current_timestamp,7,'corr-1',current_timestamp,current_timestamp,'ACTIVE')");
+            statement.executeUpdate("insert into gmail_message_candidates (candidate_id,connection_id,tenant_id,user_id,provider_message_id,state,deterministic_score,deterministic_signals_json,discovered_at) values ('33333333-3333-3333-3333-333333333333','" + connectionId + "','tenant-1','user-1','provider-1','PENDING',0.7,'[]',current_timestamp)");
+            statement.executeUpdate("insert into gmail_backfill_batches (batch_id,run_id,tenant_id,user_id,connection_id,sequence_no,window_from,window_to,priority,status,attempt_count,created_at,updated_at) values ('44444444-4444-4444-4444-444444444444','" + runId + "','tenant-1','user-1','" + connectionId + "',1,dateadd('HOUR',-1,current_timestamp),current_timestamp,'HIGH','QUEUED',0,current_timestamp,current_timestamp)");
+            statement.executeUpdate("update classification_reviews set candidate_id='33333333-3333-3333-3333-333333333333' where 1=0");
+
+            assertThatThrownBy(() -> statement.executeUpdate("insert into gmail_backfill_runs (run_id,tenant_id,user_id,connection_id,idempotency_key,mode,status,requested_from,requested_to,batch_size_days,correlation_id,created_at,updated_at,active_owner_key) values ('55555555-5555-5555-5555-555555555555','tenant-1','user-1','" + connectionId + "','idem-2','AUTOMATIC','RUNNING',dateadd('DAY',-1,current_timestamp),current_timestamp,7,'corr-2',current_timestamp,current_timestamp,'ACTIVE')"))
+                    .isInstanceOf(Exception.class);
+            assertThatThrownBy(() -> statement.executeUpdate("insert into gmail_message_candidates (candidate_id,connection_id,tenant_id,user_id,provider_message_id,state,deterministic_score,deterministic_signals_json,discovered_at) values ('66666666-6666-6666-6666-666666666666','" + connectionId + "','tenant-1','user-1','provider-1','PENDING',0.2,'[]',current_timestamp)"))
+                    .isInstanceOf(Exception.class);
+        }
+    }
+
+    private static void assertMigrationContains(String file, String... fragments) throws IOException {
+        String sql = new ClassPathResource("db/migration/" + file).getContentAsString(StandardCharsets.UTF_8);
+        for (String fragment : fragments) {
+            assertThat(sql).containsIgnoringCase(fragment);
+        }
     }
 
     @Test

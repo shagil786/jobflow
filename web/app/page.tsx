@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { GmailReviewQueue, type GmailReviewDecision, type GmailReviewItem } from "../components/gmail-review-queue";
 
 type Action = {
   id: string;
@@ -23,11 +24,8 @@ type ApiApplication = {
   updatedAt: string;
 };
 
-type ReviewSuggestion = {
-  connectionId: string;
-  suggestion: { suggestionId: string; messageId: string; threadId: string; intent: string; confidence: number; company?: { value?: string }; role?: { value?: string }; applicationDate?: { value?: string }; contact?: { value?: string }; missingFields: string[] };
-};
-type ReviewPayload = { decision: "ACCEPT" | "CORRECT" | "DISMISS"; company?: string; role?: string };
+type ReviewSuggestion = GmailReviewItem;
+type ReviewPayload = GmailReviewDecision;
 
 export default function Home() {
   const [actions, setActions] = useState<Action[]>([]);
@@ -174,7 +172,7 @@ export default function Home() {
           </section>
 
           <div>
-            <section className="section-card review-card" aria-labelledby="review-heading"><div className="section-head"><div><span className="section-overline">Evidence inbox</span><h2 id="review-heading" className="section-title">Needs your review</h2><p className="section-caption">Suggestions stay out of your timeline until you confirm them.</p></div><span className="count-pill">{reviews.length} items</span></div>{reviewLoadState === "unavailable" ? <div className="empty-state">Review queue is unavailable. No local suggestions are shown.</div> : reviews.length ? <div className="review-list">{reviews.map((item) => <ReviewRow key={item.suggestion.suggestionId} item={item} saving={reviewSaving === item.suggestion.suggestionId} onDecision={saveReview} />)}</div> : <div className="empty-state compact-empty"><div className="empty-icon soft" aria-hidden="true">✦</div><strong>No evidence waiting.</strong><span>When JobFlow finds a scoped message, it will appear here before it becomes a record.</span></div>}</section>
+            {reviewLoadState === "unavailable" ? <section className="section-card review-card" aria-labelledby="review-heading"><div className="section-head"><div><span className="section-overline">Evidence inbox</span><h2 id="review-heading" className="section-title">Needs your review</h2></div></div><div className="empty-state">Review queue is unavailable. No local suggestions are shown.</div></section> : <GmailReviewQueue items={reviews} savingId={reviewSaving} onDecision={saveReview} />}
             <section className="section-card insight-card" aria-labelledby="insight-heading"><div className="section-head"><div><span className="section-overline">Pattern library</span><h2 id="insight-heading" className="section-title">Your signals</h2><p className="section-caption">Insights will be calculated from confirmed outcomes.</p></div></div><div className="empty-state compact-empty"><div className="signal-bars" aria-hidden="true"><i /><i /><i /></div><strong>Patterns come later.</strong><span>We will show what is working once your timeline has real outcomes.</span></div></section>
             <section className="section-card stats-card" aria-labelledby="stats-heading"><div className="section-head"><div><span className="section-overline">A monthly pulse</span><h2 id="stats-heading" className="section-title">This month</h2><p className="section-caption">Only confirmed records are counted.</p></div><span className="month-label">AUG 2026</span></div><div className="empty-state compact-empty"><div className="empty-icon soft" aria-hidden="true">—</div><strong>No outcome data yet.</strong><span>That is okay. Start with one honest capture.</span></div></section>
           </div>
@@ -194,13 +192,6 @@ function NavIcon({ name }: { name: "today" | "grid" | "contact" | "insight" }) {
 function PowerIcon() { return <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" aria-hidden="true"><path d="M10 3v6" /><path d="M6.1 5.7a6.2 6.2 0 1 0 7.8 0" /></svg>; }
 function Metric({ icon, label, value, note }: { icon: string; label: string; value: string; note: string }) { return <div className="metric"><div className="metric-top"><span className="metric-icon" aria-hidden="true">{icon}</span><span className="metric-label">{label}</span></div><div className="metric-value">{value}</div><div className="metric-note">{note}</div></div>; }
 function ActionRow({ action, onComplete, onOpen }: { action: Action; onComplete: (id: string) => void; onOpen: () => void }) { return <article className="action-row"><span className={`priority-dot ${action.tone}`} aria-hidden="true" /><div><button className="action-title" type="button" onClick={onOpen}>{action.title}</button><div className="action-meta"><strong>{action.company}</strong><span>{action.role}</span><span>{action.date}</span></div></div><div><span className={`action-type ${action.tone}`}>{action.kind}</span><button className="complete-button" type="button" onClick={() => onComplete(action.id)}>Mark done</button></div></article>; }
-function ReviewRow({ item, saving, onDecision }: { item: ReviewSuggestion; saving: boolean; onDecision: (id: string, payload: ReviewPayload) => void }) {
-  const suggestion = item.suggestion;
-  const [editing, setEditing] = useState(false);
-  const [company, setCompany] = useState(suggestion.company?.value ?? "");
-  const [role, setRole] = useState(suggestion.role?.value ?? "");
-  return <article className="review-row"><div><strong>{suggestion.company?.value ?? "Unknown company"}</strong><span className="review-intent">{suggestion.intent.replaceAll("_", " ").toLowerCase()}</span><p>{suggestion.role?.value ?? "Role needs confirmation"} · {Math.round(suggestion.confidence * 100)}% confidence</p><small>Message {suggestion.messageId} · {suggestion.missingFields.length ? `Missing: ${suggestion.missingFields.join(", ")}` : "Fields are complete"}</small>{editing && <div className="review-edit"><label>Company<input value={company} onChange={(event) => setCompany(event.target.value)} /></label><label>Role<input value={role} onChange={(event) => setRole(event.target.value)} /></label></div>}</div><div className="review-actions">{editing ? <button className="primary-button" type="button" disabled={saving} onClick={() => onDecision(suggestion.suggestionId, { decision: "CORRECT", company, role })}>{saving ? "Saving…" : "Save correction"}</button> : <><button className="outline-button" type="button" disabled={saving} onClick={() => onDecision(suggestion.suggestionId, { decision: "DISMISS" })}>Dismiss</button><button className="outline-button" type="button" disabled={saving} onClick={() => setEditing(true)}>Correct</button><button className="primary-button" type="button" disabled={saving} onClick={() => onDecision(suggestion.suggestionId, { decision: "ACCEPT" })}>{saving ? "Saving…" : "Confirm"}</button></>}</div></article>;
-}
 function Stat({ label, value, percent }: { label: string; value: string; percent: string }) { return <div><div className="stat-line"><span>{label}</span><strong>{value}</strong></div><div className="bar"><span style={{ width: percent }} /></div></div>; }
 function toAction(application: ApiApplication): Action {
   const isCaptured = application.status === "CAPTURED";

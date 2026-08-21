@@ -1,0 +1,19 @@
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    container_name: jobflow-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      AWS_DEFAULT_REGION: ${AWS_REGION:-ap-south-1}
+      SERVICES: sqs
+      DEBUG: ${LOCALSTACK_DEBUG:-0}
+      PERSISTENCE: ${LOCALSTACK_PERSISTENCE:-1}
+    volumes:
+      - "${LOCALSTACK_VOLUME_DIR:-./.localstack}:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "awslocal sqs list-queues >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20

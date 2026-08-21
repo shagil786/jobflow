@@ -90,7 +90,10 @@ public class RestGmailApiClient implements GmailApiClient {
 
     @Override public MessagePage listMessages(String accessToken, String query, String pageToken) {
         try {
-            MessageListResponse response = client.get().uri(uri -> uri.scheme("https").host("gmail.googleapis.com").path("/gmail/v1/users/me/messages").queryParam("q", query).queryParamIfPresent("pageToken", java.util.Optional.ofNullable(pageToken)).build()).header("Authorization", "Bearer " + accessToken).retrieve().body(MessageListResponse.class);
+            MessageListResponse response = client.get().uri(uri -> UriComponentsBuilder.fromUriString(gmailEndpoint + "/messages")
+                    .queryParam("q", query)
+                    .queryParamIfPresent("pageToken", java.util.Optional.ofNullable(pageToken))
+                    .build().toUri()).header("Authorization", "Bearer " + accessToken).retrieve().body(MessageListResponse.class);
             List<MessageRef> refs = response == null || response.messages == null ? List.of() : response.messages.stream().map(m -> new MessageRef(m.id, m.threadId)).toList();
             return new MessagePage(refs, response == null ? null : response.nextPageToken, null);
         } catch (RestClientResponseException e) { throw new GmailFetchException(e); }

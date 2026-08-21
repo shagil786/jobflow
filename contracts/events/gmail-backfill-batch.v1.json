@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jobflow.dev/contracts/events/gmail-backfill-batch.v1.json",
+  "title": "GmailBackfillBatch.v1",
+  "type": "object",
+  "required": ["eventId", "eventType", "tenantId", "userId", "correlationId", "runId", "batchId", "connectionId", "sequenceNo", "windowFrom", "windowTo", "attemptId", "occurredAt"],
+  "properties": {
+    "eventId": {"type": "string", "minLength": 1},
+    "eventType": {"const": "GmailBackfillBatch.v1"},
+    "tenantId": {"type": "string", "minLength": 1},
+    "userId": {"type": "string", "minLength": 1},
+    "correlationId": {"type": "string", "minLength": 1},
+    "runId": {"type": "string", "format": "uuid"},
+    "batchId": {"type": "string", "format": "uuid"},
+    "connectionId": {"type": "string", "format": "uuid"},
+    "sequenceNo": {"type": "integer", "minimum": 0},
+    "windowFrom": {"type": "string", "format": "date-time"},
+    "windowTo": {"type": "string", "format": "date-time"},
+    "attemptId": {"type": "string", "minLength": 1},
+    "occurredAt": {"type": "string", "format": "date-time"}
+  },
+  "additionalProperties": false
+}

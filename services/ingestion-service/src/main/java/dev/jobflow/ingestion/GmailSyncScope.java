@@ -11,4 +11,8 @@ public final class GmailSyncScope {
         }
         return "label:" + TRACK_LABEL;
     }
+
+    public static String queryForWindow(java.time.Instant from, java.time.Instant to) {
+        return GmailApiClient.dateWindowQuery(from, to);
+    }
 }

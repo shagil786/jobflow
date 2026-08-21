@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jobflow.dev/contracts/events/gmail-backfill-requested.v1.json",
+  "title": "GmailBackfillRequested.v1",
+  "type": "object",
+  "required": ["eventId", "eventType", "tenantId", "userId", "correlationId", "idempotencyKey", "occurredAt", "runId", "connectionId", "windowFrom", "windowTo", "mode"],
+  "properties": {
+    "eventId": {"type": "string", "minLength": 1},
+    "eventType": {"const": "GmailBackfillRequested.v1"},
+    "tenantId": {"type": "string", "minLength": 1},
+    "userId": {"type": "string", "minLength": 1},
+    "correlationId": {"type": "string", "minLength": 1},
+    "idempotencyKey": {"type": "string", "minLength": 1},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "runId": {"type": "string", "format": "uuid"},
+    "connectionId": {"type": "string", "format": "uuid"},
+    "windowFrom": {"type": "string", "format": "date-time"},
+    "windowTo": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["AUTOMATIC", "LABEL_SCOPED"]}
+  },
+  "additionalProperties": false
+}
