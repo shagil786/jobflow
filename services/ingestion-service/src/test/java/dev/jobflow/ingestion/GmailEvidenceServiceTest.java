@@ -143,6 +143,9 @@ class GmailEvidenceServiceTest {
         @Override public Optional<StoredGmailConnection> findByOwnerAndEmail(String tenantId, String userId, String email) {
             return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId) && v.email().equalsIgnoreCase(email)).findFirst();
         }
+        @Override public List<StoredGmailConnection> findAllByOwner(String tenantId, String userId) {
+            return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId)).toList();
+        }
     }
 
     private static final class InMemoryMessages implements GmailMessageStore {

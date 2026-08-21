@@ -3,6 +3,8 @@ package dev.jobflow.ingestion;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.UUID;
+import java.util.List;
+import java.util.Locale;
 import org.springframework.transaction.annotation.Transactional;
 
 public class GmailConnectionService {
@@ -20,11 +22,12 @@ public class GmailConnectionService {
     public GmailConnectionRecord connect(GmailConnectionCommand command) {
         require(command.userId(), "userId"); require(command.tenantId(), "tenantId");
         require(command.email(), "email"); require(command.refreshToken(), "refreshToken"); require(command.historyId(), "historyId");
-        StoredGmailConnection existing = store.findByOwnerAndEmail(command.tenantId(), command.userId(), command.email()).orElse(null);
+        String email = normalizeEmail(command.email());
+        StoredGmailConnection existing = store.findByOwnerAndEmail(command.tenantId(), command.userId(), email).orElse(null);
         UUID id = existing == null ? UUID.randomUUID() : existing.connectionId();
-        store.save(new StoredGmailConnection(id, command.userId(), command.tenantId(), command.email(),
+        store.save(new StoredGmailConnection(id, command.userId(), command.tenantId(), email,
                 cipher.encrypt(command.refreshToken()), command.historyId(), null, Instant.now(clock)));
-        return new GmailConnectionRecord(id, command.email(), command.historyId(), null);
+        return new GmailConnectionRecord(id, email, command.historyId(), null);
     }
 
     @Transactional
@@ -36,9 +39,16 @@ public class GmailConnectionService {
 
     @Transactional(readOnly = true)
     public GmailConnectionStatus status(String tenantId, String userId) {
-        return store.findByOwner(tenantId, userId)
-                .map(connection -> new GmailConnectionStatus(connection.connectionId(), true, connection.email(), connection.connectedAt()))
-                .orElse(new GmailConnectionStatus(null, false, null, null));
+        List<StoredGmailConnection> connections = store.findAllByOwner(tenantId, userId);
+        if (connections.isEmpty()) {
+            return new GmailConnectionStatus(null, false, null, null);
+        }
+        StoredGmailConnection latest = connections.get(0);
+        return new GmailConnectionStatus(latest.connectionId(), true, latest.email(), latest.connectedAt());
+    }
+
+    private static String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 
     private static void require(String value, String name) {

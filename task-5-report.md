@@ -5,7 +5,7 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/evidence-iden
 
 ## Summary
 
-Task 5 final broad-review fixes are complete. Same-owner reconnects reuse a connection only when the modeled Gmail provider email matches; a different Gmail mailbox receives a new connection identity. Message and thread inserts validate connection ownership before the first insert. Internal authentication and Gmail fetch failures use typed handlers with safe codes/messages and optional `X-Request-Id` metadata; arbitrary exception messages are not exposed.
+Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gmail connection uniqueness with normalized `(tenant_id, user_id, email)` identity. Same-mailbox reconnects remain idempotent, different mailboxes receive distinct connection IDs, and status explicitly handles multiple rows. All Gmail calls used by sync map upstream, auth, network, malformed-response, and fetch failures to typed safe errors.
 
 ## Verification Results
 
@@ -15,11 +15,13 @@ Task 5 final broad-review fixes are complete. Same-owner reconnects reuse a conn
   - Unknown connections on the internal sync and cursor routes are covered by `GmailConnectionControllerTest` and return `404` with `{"code":"GMAIL_CONNECTION_NOT_FOUND","message":"Gmail connection not found"}`; neither response includes owner/tenant data.
   - Cross-tenant message lookup remains non-returning and is already covered by `GmailMessageStoreTest`.
   - Same-mailbox reconnect identity reuse and different-mailbox identity separation are covered by `GmailConnectionServiceTest`.
+  - `GmailConnectionPersistenceTest` applies all six Flyway migrations and persists two same-owner mailboxes with distinct IDs while preserving same-mailbox idempotency.
   - First-insert owner mismatches are covered by `GmailMessageStoreTest` and `GmailThreadStoreTest`; both reject before persistence.
 
 - Controlled errors:
   - Bad internal authentication returns `INTERNAL_AUTHENTICATION_FAILED` without the supplied key.
   - Gmail fetch failures return `GMAIL_FETCH_FAILED` with `502 Bad Gateway`, without tokens or Gmail response bodies; request IDs are returned when supplied.
+  - `RestGmailApiClientTest` covers refresh-token, profile/history, label, message-list, history-list, metadata/body, network/non-success, and bounded-content failure paths; assertions verify the raw upstream response text is absent from the typed error message.
 
 - Retention and logging:
   - Source scan found no ingestion-service application logger calls that emit raw body content, prompts, or OAuth tokens.
@@ -30,12 +32,13 @@ Task 5 final broad-review fixes are complete. Same-owner reconnects reuse a conn
 ## Checks Run
 
 - Backend:
+  - `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailConnectionPersistenceTest,GmailConnectionServiceTest,RestGmailApiClientTest,GmailConnectionControllerTest test` — passed.
   - `cd services/ingestion-service && mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test` — passed.
 
 - Web:
   - `cd web && npm test -- --run && npm run typecheck` — passed: 13 test files, 28 tests, and typecheck passed.
 
-All required final broad-review checks passed on 2026-08-21.
+All required final hardening checks passed on 2026-08-21.
 
 ## Operational Smoke Checks
 

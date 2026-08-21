@@ -3,7 +3,10 @@ package dev.jobflow.ingestion;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withException;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -12,6 +15,7 @@ import java.util.Base64;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -232,10 +236,68 @@ class RestGmailApiClientTest {
                         MediaType.APPLICATION_JSON));
 
         assertThatThrownBy(() -> fixture.client().fetchMessageBodyForProcessing("access-token", "msg-3"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("256 KiB");
+                .isInstanceOf(GmailFetchException.class)
+                .hasMessage("Gmail fetch failed")
+                .hasMessageNotContaining("256 KiB");
 
         fixture.server().verify();
+    }
+
+    @Test
+    void mapsTokenRefreshFailuresToATypeWithoutEchoingUpstreamContent() {
+        ClientFixture fixture = createClientFixture();
+        fixture.server().expect(request -> assertThat(request.getURI().getPath()).isEqualTo("/token"))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED).body("refresh token secret response"));
+
+        assertFetchFailure(() -> fixture.client().refreshAccessToken("refresh-token"), "refresh token secret response");
+        fixture.server().verify();
+    }
+
+    @Test
+    void mapsNetworkFailuresToATypeWithoutEchoingTheNetworkMessage() {
+        ClientFixture fixture = createClientFixture();
+        fixture.server().expect(request -> assertThat(request.getURI().getPath()).isEqualTo("/token"))
+                .andRespond(withException(new IOException("network response secret")));
+
+        assertFetchFailure(() -> fixture.client().refreshAccessToken("refresh-token"), "network response secret");
+        fixture.server().verify();
+    }
+
+    @Test
+    void mapsHistoryAndLabelFailuresToTypesWithoutEchoingUpstreamContent() {
+        ClientFixture historyFixture = createClientFixture();
+        historyFixture.server().expect(request -> assertThat(request.getURI().getPath()).endsWith("/profile"))
+                .andRespond(withStatus(HttpStatus.BAD_GATEWAY).body("history response secret"));
+        assertFetchFailure(() -> historyFixture.client().currentHistoryId("access-token"), "history response secret");
+        historyFixture.server().verify();
+
+        ClientFixture labelFixture = createClientFixture();
+        labelFixture.server().expect(request -> assertThat(request.getURI().getPath()).endsWith("/labels"))
+                .andRespond(withStatus(HttpStatus.BAD_GATEWAY).body("label response secret"));
+        assertFetchFailure(() -> labelFixture.client().trackLabelId("access-token"), "label response secret");
+        labelFixture.server().verify();
+    }
+
+    @Test
+    void mapsMessageAndHistoryListingFailuresToTypesWithoutEchoingUpstreamContent() {
+        ClientFixture messageFixture = createClientFixture();
+        messageFixture.server().expect(request -> assertThat(request.getURI().getPath()).contains("/messages"))
+                .andRespond(withStatus(HttpStatus.BAD_GATEWAY).body("message list response secret"));
+        assertFetchFailure(() -> messageFixture.client().listMessages("access-token", "label:JobFlow/Track", null), "message list response secret");
+        messageFixture.server().verify();
+
+        ClientFixture historyFixture = createClientFixture();
+        historyFixture.server().expect(request -> assertThat(request.getURI().getPath()).endsWith("/history"))
+                .andRespond(withStatus(HttpStatus.BAD_GATEWAY).body("history list response secret"));
+        assertFetchFailure(() -> historyFixture.client().listHistory("access-token", "history-1", "label-1", null), "history list response secret");
+        historyFixture.server().verify();
+    }
+
+    private static void assertFetchFailure(Runnable call, String rawResponse) {
+        assertThatThrownBy(() -> call.run())
+                .isInstanceOf(GmailFetchException.class)
+                .hasMessage("Gmail fetch failed")
+                .hasMessageNotContaining(rawResponse);
     }
 
     private static ClientFixture createClientFixture() {

@@ -56,23 +56,35 @@ public class RestGmailApiClient implements GmailApiClient {
     }
 
     @Override public AccessToken refreshAccessToken(String refreshToken) {
-        var body = new org.springframework.util.LinkedMultiValueMap<String, String>();
-        body.add("client_id", clientId); body.add("client_secret", clientSecret); body.add("refresh_token", refreshToken); body.add("grant_type", "refresh_token");
-        TokenResponse response = client.post().uri(tokenEndpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED).body(body).retrieve().body(TokenResponse.class);
-        if (response == null || response.access_token == null || response.access_token.isBlank()) throw new IllegalStateException("Gmail access token was not returned");
-        return new AccessToken(response.access_token, Instant.now().plusSeconds(response.expires_in == null ? 3600 : response.expires_in));
+        try {
+            var body = new org.springframework.util.LinkedMultiValueMap<String, String>();
+            body.add("client_id", clientId); body.add("client_secret", clientSecret); body.add("refresh_token", refreshToken); body.add("grant_type", "refresh_token");
+            TokenResponse response = client.post().uri(tokenEndpoint).contentType(MediaType.APPLICATION_FORM_URLENCODED).body(body).retrieve().body(TokenResponse.class);
+            if (response == null || response.access_token == null || response.access_token.isBlank()) throw fetchFailure("Gmail access token was not returned");
+            return new AccessToken(response.access_token, Instant.now().plusSeconds(response.expires_in == null ? 3600 : response.expires_in));
+        } catch (RestClientException e) {
+            throw new GmailFetchException(e);
+        }
     }
 
     @Override public String currentHistoryId(String accessToken) {
-        ProfileResponse response = client.get().uri(gmailEndpoint + "/profile").header("Authorization", "Bearer " + accessToken).retrieve().body(ProfileResponse.class);
-        if (response == null || response.historyId == null || response.historyId.isBlank()) throw new IllegalStateException("Gmail profile history cursor was not returned");
-        return response.historyId;
+        try {
+            ProfileResponse response = client.get().uri(gmailEndpoint + "/profile").header("Authorization", "Bearer " + accessToken).retrieve().body(ProfileResponse.class);
+            if (response == null || response.historyId == null || response.historyId.isBlank()) throw fetchFailure("Gmail profile history cursor was not returned");
+            return response.historyId;
+        } catch (RestClientException e) {
+            throw new GmailFetchException(e);
+        }
     }
 
     @Override public String trackLabelId(String accessToken) {
-        LabelListResponse response = client.get().uri(gmailEndpoint + "/labels").header("Authorization", "Bearer " + accessToken).retrieve().body(LabelListResponse.class);
-        if (response != null && response.labels != null) for (LabelDto label : response.labels) if (GmailSyncScope.TRACK_LABEL.equals(label.name)) return label.id;
-        throw new IllegalStateException("Gmail label JobFlow/Track was not found");
+        try {
+            LabelListResponse response = client.get().uri(gmailEndpoint + "/labels").header("Authorization", "Bearer " + accessToken).retrieve().body(LabelListResponse.class);
+            if (response != null && response.labels != null) for (LabelDto label : response.labels) if (GmailSyncScope.TRACK_LABEL.equals(label.name)) return label.id;
+            throw fetchFailure("Gmail label JobFlow/Track was not found");
+        } catch (RestClientException e) {
+            throw new GmailFetchException(e);
+        }
     }
 
     @Override public MessagePage listMessages(String accessToken, String query, String pageToken) {
@@ -80,7 +92,8 @@ public class RestGmailApiClient implements GmailApiClient {
             MessageListResponse response = client.get().uri(uri -> uri.scheme("https").host("gmail.googleapis.com").path("/gmail/v1/users/me/messages").queryParam("q", query).queryParamIfPresent("pageToken", java.util.Optional.ofNullable(pageToken)).build()).header("Authorization", "Bearer " + accessToken).retrieve().body(MessageListResponse.class);
             List<MessageRef> refs = response == null || response.messages == null ? List.of() : response.messages.stream().map(m -> new MessageRef(m.id, m.threadId)).toList();
             return new MessagePage(refs, response == null ? null : response.nextPageToken, null);
-        } catch (RestClientResponseException e) { throw new IllegalStateException("Gmail message listing failed", e); }
+        } catch (RestClientResponseException e) { throw new GmailFetchException(e); }
+        catch (RestClientException e) { throw new GmailFetchException(e); }
     }
 
     @Override public HistoryPage listHistory(String accessToken, String startHistoryId, String labelId, String pageToken) {
@@ -91,7 +104,9 @@ public class RestGmailApiClient implements GmailApiClient {
             return new HistoryPage(refs, response == null ? null : response.nextPageToken, response == null ? startHistoryId : response.historyId);
         } catch (RestClientResponseException e) {
             if (e.getStatusCode().value() == 404) throw new GmailHistoryExpiredException();
-            throw new IllegalStateException("Gmail history listing failed", e);
+            throw new GmailFetchException(e);
+        } catch (RestClientException e) {
+            throw new GmailFetchException(e);
         }
     }
 
@@ -138,6 +153,10 @@ public class RestGmailApiClient implements GmailApiClient {
         return builder.build(true).toUri();
     }
 
+    private static GmailFetchException fetchFailure(String message) {
+        return new GmailFetchException(new IllegalStateException(message));
+    }
+
     private SafeGmailMessage toSafeMetadata(MessageDetailResponse response) {
         if (response == null || response.id == null || response.id.isBlank()) {
             throw new GmailFetchException(new IllegalStateException("Gmail metadata was not returned"));
@@ -161,7 +180,11 @@ public class RestGmailApiClient implements GmailApiClient {
             throw new GmailFetchException(new IllegalStateException("Gmail message body was not returned"));
         }
         CollectedContent content = new CollectedContent();
-        collectTextParts(response.payload, content);
+        try {
+            collectTextParts(response.payload, content);
+        } catch (IllegalStateException e) {
+            throw new GmailFetchException(e);
+        }
         String normalized = content.normalizedText();
         return new SafeGmailMessage(
                 response.id,
