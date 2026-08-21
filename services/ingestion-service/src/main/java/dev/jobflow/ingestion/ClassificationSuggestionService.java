@@ -13,7 +13,6 @@ public class ClassificationSuggestionService {
         this.store = store;
     }
 
-    @Transactional
     public ClassificationSuggestionRecord saveIfAbsent(ClassificationSuggestionRecord suggestion) {
         return store.saveIfAbsent(suggestion);
     }

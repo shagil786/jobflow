@@ -1,6 +1,5 @@
 package dev.jobflow.ingestion;
 
-import jakarta.persistence.EntityManager;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
@@ -20,19 +19,20 @@ public class JpaClassificationSuggestionStore implements ClassificationSuggestio
 
     private final ClassificationSuggestionRepository repository;
     private final GmailConnectionRepository connections;
-    private final EntityManager entityManager;
     private final TransactionTemplate writeTransaction;
+    private final TransactionTemplate readTransaction;
 
     public JpaClassificationSuggestionStore(
             ClassificationSuggestionRepository repository,
             GmailConnectionRepository connections,
-            EntityManager entityManager,
             PlatformTransactionManager transactionManager) {
         this.repository = repository;
         this.connections = connections;
-        this.entityManager = entityManager;
         this.writeTransaction = new TransactionTemplate(transactionManager);
         this.writeTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.readTransaction = new TransactionTemplate(transactionManager);
+        this.readTransaction.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        this.readTransaction.setReadOnly(true);
     }
 
     @Override
@@ -63,13 +63,12 @@ public class JpaClassificationSuggestionStore implements ClassificationSuggestio
                     .saveAndFlush(new ClassificationSuggestionEntity(record.connectionId(), suggestion))
                     .toRecord());
         } catch (DataIntegrityViolationException error) {
-            entityManager.clear();
             if (!isSuggestionIdentityViolation(error)) {
                 throw error;
             }
-            return findByScopedIdentity(record.connectionId(), suggestion)
+            return readTransaction.execute(status -> findByScopedIdentity(record.connectionId(), suggestion)
                     .map(ClassificationSuggestionEntity::toRecord)
-                    .orElseThrow(() -> error);
+                    .orElseThrow(() -> error));
         }
     }
 
