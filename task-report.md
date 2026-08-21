@@ -7,9 +7,11 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/suggestion-pe
 
 - Added immutable `ClassificationSuggestionV1` persistence for tenant/user/connection/message scoped Gmail suggestions.
 - Added tenant-safe repository/store/service boundary with idempotent `saveIfAbsent` and scoped latest lookup.
-- Added Flyway `V9__create_classification_suggestions.sql`.
+- Added Flyway `V9__create_classification_suggestions.sql` and follow-up `V10__order_classification_suggestions_by_row_id.sql`.
+- Derived persisted `suggestion_id` from tenant, user, connection, message, classifier-version, and content-hash scope while retaining same-scope idempotency.
+- Changed latest lookup to use database identity `row_id` insertion order; `created_at` remains informational.
 - Sanitized persisted evidence by dropping `quotedText` before rows are written.
-- Added focused store/service/migration tests for idempotency, changed-content/versioned inserts, owner mismatch rejection, tenant-scoped lookup, and additive migration behavior.
+- Added focused store/service/migration tests for idempotency, changed-content/versioned inserts, cross-owner same-message persistence, insertion-order latest lookup despite out-of-order timestamps, owner mismatch rejection, tenant-scoped lookup, and additive migration behavior.
 
 ## Verification
 
@@ -21,10 +23,10 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/suggestion-pe
    ```
 
    Result: passed
-   - `ClassificationSuggestionStoreTest`: 4 tests, 0 failures, 0 errors
+   - `ClassificationSuggestionStoreTest`: 5 tests, 0 failures, 0 errors
    - `ClassificationSuggestionServiceTest`: 1 test, 0 failures, 0 errors
    - `FlywayMigrationTest`: 4 tests, 0 failures, 0 errors
-   - Total: 9 tests, 0 failures, 0 errors, 0 skipped
+   - Total: 10 tests, 0 failures, 0 errors, 0 skipped
 
 2. Full ingestion Maven suite
 
@@ -34,7 +36,7 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/suggestion-pe
    ```
 
    Result: passed
-   - Total from Surefire reports: 66 tests, 0 failures, 0 errors, 0 skipped
+   - Total from Surefire reports: 67 tests, 0 failures, 0 errors, 0 skipped
 
 3. Explicit classifier verification
 

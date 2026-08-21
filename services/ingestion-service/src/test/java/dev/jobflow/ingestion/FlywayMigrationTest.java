@@ -19,10 +19,12 @@ class FlywayMigrationTest {
         ClassPathResource messageMigration = new ClassPathResource("db/migration/V4__expand_gmail_message_metadata.sql");
         ClassPathResource threadMigration = new ClassPathResource("db/migration/V5__create_gmail_threads.sql");
         ClassPathResource suggestionMigration = new ClassPathResource("db/migration/V9__create_classification_suggestions.sql");
+        ClassPathResource suggestionOrderingMigration = new ClassPathResource("db/migration/V10__order_classification_suggestions_by_row_id.sql");
 
         assertThat(messageMigration.exists()).isTrue();
         assertThat(threadMigration.exists()).isTrue();
         assertThat(suggestionMigration.exists()).isTrue();
+        assertThat(suggestionOrderingMigration.exists()).isTrue();
 
         String messageSql = messageMigration.getContentAsString(StandardCharsets.UTF_8);
         assertThat(messageSql).containsIgnoringCase("alter table gmail_messages add column if not exists");
@@ -42,6 +44,9 @@ class FlywayMigrationTest {
         assertThat(suggestionSql).containsIgnoringCase("content_hash");
         assertThat(suggestionSql).containsIgnoringCase("evidence_json");
         assertThat(suggestionSql).containsIgnoringCase("unique");
+
+        assertThat(suggestionOrderingMigration.getContentAsString(StandardCharsets.UTF_8))
+                .containsIgnoringCase("row_id");
     }
 
     @Test
@@ -100,7 +105,7 @@ class FlywayMigrationTest {
 
     @Test
     void upgradesV8AdditivelyAndPreservesExistingGmailRowsWhileAddingSuggestionSchema() throws Exception {
-        String url = "jdbc:h2:mem:flyway-v8-to-v9;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
+        String url = "jdbc:h2:mem:flyway-v8-to-v10;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
         try (Connection connection = DriverManager.getConnection(url, "sa", ""); Statement statement = connection.createStatement()) {
             Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").target("8").load().migrate();
             String connectionId = "11111111-1111-1111-1111-111111111111";

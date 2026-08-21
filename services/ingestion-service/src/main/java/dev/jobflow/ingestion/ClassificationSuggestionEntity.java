@@ -7,6 +7,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -86,7 +87,7 @@ public class ClassificationSuggestionEntity {
     }
 
     void update(UUID connectionId, ClassificationSuggestionV1 suggestion) {
-        suggestionId = suggestion.suggestionId();
+        suggestionId = scopedSuggestionId(connectionId, suggestion);
         this.connectionId = connectionId;
         tenantId = suggestion.tenantId();
         userId = suggestion.userId();
@@ -138,6 +139,17 @@ public class ClassificationSuggestionEntity {
 
     private static String toJsonOrNull(Object value) {
         return value == null ? null : ClassificationSuggestionJsonCodec.write(value);
+    }
+
+    private static String scopedSuggestionId(UUID connectionId, ClassificationSuggestionV1 suggestion) {
+        String scope = String.join("\u001f",
+                suggestion.tenantId(),
+                suggestion.userId(),
+                connectionId.toString(),
+                suggestion.messageId(),
+                suggestion.classifierVersion(),
+                suggestion.contentHash());
+        return UUID.nameUUIDFromBytes(scope.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     Long rowId() {

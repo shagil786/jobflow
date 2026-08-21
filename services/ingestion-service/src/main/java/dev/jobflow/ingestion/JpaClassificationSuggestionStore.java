@@ -57,7 +57,7 @@ public class JpaClassificationSuggestionStore implements ClassificationSuggestio
         requireValue(messageId, "messageId");
         Objects.requireNonNull(connectionId, "connectionId");
         return repository
-                .findTopByTenantIdAndUserIdAndConnectionIdAndMessageIdOrderByCreatedAtDescRowIdDesc(
+                .findTopByTenantIdAndUserIdAndConnectionIdAndMessageIdOrderByRowIdDesc(
                         tenantId, userId, connectionId, messageId)
                 .map(ClassificationSuggestionEntity::toRecord);
     }

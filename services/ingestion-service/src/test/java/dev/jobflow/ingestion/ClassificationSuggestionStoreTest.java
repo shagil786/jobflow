@@ -93,11 +93,58 @@ class ClassificationSuggestionStoreTest {
         ClassificationSuggestionRecord savedChangedContent = store.saveIfAbsent(changedContent);
         ClassificationSuggestionRecord savedChangedVersion = store.saveIfAbsent(changedVersion);
 
+        jdbcTemplate.update(
+                "update classification_suggestions set created_at = ? where suggestion_id = ?",
+                Instant.parse("2026-08-21T12:00:00Z"),
+                savedChangedVersion.suggestion().suggestionId());
+        jdbcTemplate.update(
+                "update classification_suggestions set created_at = ? where suggestion_id = ?",
+                Instant.parse("2026-08-21T13:00:00Z"),
+                savedChangedContent.suggestion().suggestionId());
+
         assertThat(repository.count()).isEqualTo(3);
         assertThat(savedChangedContent.suggestion().suggestionId()).isNotEqualTo(savedFirst.suggestion().suggestionId());
         assertThat(savedChangedVersion.suggestion().suggestionId()).isNotEqualTo(savedChangedContent.suggestion().suggestionId());
         assertThat(store.findLatestByProviderIdentity("tenant-1", "user-1", connectionId, "message-1"))
                 .contains(savedChangedVersion);
+    }
+
+    @Test
+    void allowsSameMessageAndContentAcrossDifferentConnectionOwnerScopes() {
+        UUID firstConnectionId = UUID.randomUUID();
+        UUID secondConnectionId = UUID.randomUUID();
+        insertConnection(firstConnectionId, "tenant-1", "user-1");
+        insertConnection(secondConnectionId, "tenant-2", "user-2");
+
+        ClassificationSuggestionRecord first = suggestionRecord(
+                firstConnectionId,
+                "tenant-1",
+                "user-1",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-21-v1",
+                "hash-1",
+                "Thank you for applying");
+        ClassificationSuggestionRecord second = suggestionRecord(
+                secondConnectionId,
+                "tenant-2",
+                "user-2",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-21-v1",
+                "hash-1",
+                "Thank you for applying");
+
+        ClassificationSuggestionRecord savedFirst = store.saveIfAbsent(first);
+        ClassificationSuggestionRecord savedSecond = store.saveIfAbsent(second);
+
+        assertThat(repository.count()).isEqualTo(2);
+        assertThat(savedSecond.suggestion().suggestionId())
+                .isNotEqualTo(savedFirst.suggestion().suggestionId());
+        assertThat(store.findLatestByProviderIdentity("tenant-1", "user-1", firstConnectionId, "message-1"))
+                .contains(savedFirst);
+        assertThat(store.findLatestByProviderIdentity("tenant-2", "user-2", secondConnectionId, "message-1"))
+                .contains(savedSecond);
     }
 
     @Test

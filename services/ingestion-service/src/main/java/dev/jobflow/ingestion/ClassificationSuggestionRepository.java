@@ -8,6 +8,6 @@ public interface ClassificationSuggestionRepository extends JpaRepository<Classi
     Optional<ClassificationSuggestionEntity> findByConnectionIdAndMessageIdAndClassifierVersionAndContentHash(
             UUID connectionId, String messageId, String classifierVersion, String contentHash);
 
-    Optional<ClassificationSuggestionEntity> findTopByTenantIdAndUserIdAndConnectionIdAndMessageIdOrderByCreatedAtDescRowIdDesc(
+    Optional<ClassificationSuggestionEntity> findTopByTenantIdAndUserIdAndConnectionIdAndMessageIdOrderByRowIdDesc(
             String tenantId, String userId, UUID connectionId, String messageId);
 }
