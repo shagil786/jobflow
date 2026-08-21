@@ -6,17 +6,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 @DataJpaTest
-@Import(JpaClassificationSuggestionStore.class)
+@Import({JpaClassificationSuggestionStore.class, ClassificationSuggestionService.class})
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ClassificationSuggestionStoreTest {
     @Autowired
     private ClassificationSuggestionStore store;
+
+    @Autowired
+    private ClassificationSuggestionService service;
 
     @Autowired
     private ClassificationSuggestionRepository repository;
@@ -26,6 +38,12 @@ class ClassificationSuggestionStoreTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @AfterEach
+    void cleanUpCommittedFixtures() {
+        repository.deleteAllInBatch();
+        connections.deleteAllInBatch();
+    }
 
     @Test
     void savesSuggestionsIdempotentlyAndDropsQuotedEvidenceTextBeforePersistence() {
@@ -148,6 +166,36 @@ class ClassificationSuggestionStoreTest {
     }
 
     @Test
+    void concurrentSameScopedSavesReturnTheSamePersistedSuggestion() throws Exception {
+        UUID connectionId = UUID.randomUUID();
+        insertConnection(connectionId, "tenant-race", "user-race");
+        ClassificationSuggestionRecord suggestion = suggestionRecord(
+                connectionId,
+                "tenant-race",
+                "user-race",
+                "message-race",
+                "thread-race",
+                "rules-race-v1",
+                "hash-race",
+                "Application received");
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        Future<ClassificationSuggestionRecord> first = executor.submit(() -> saveAfter(start, suggestion));
+        Future<ClassificationSuggestionRecord> second = executor.submit(() -> saveAfter(start, suggestion));
+        start.countDown();
+
+        ClassificationSuggestionRecord firstResult = first.get(10, TimeUnit.SECONDS);
+        ClassificationSuggestionRecord secondResult = second.get(10, TimeUnit.SECONDS);
+        executor.shutdownNow();
+
+        assertThat(firstResult).isEqualTo(secondResult);
+        assertThat(repository.count()).isEqualTo(1);
+        assertThat(store.findLatestByProviderIdentity("tenant-race", "user-race", connectionId, "message-race"))
+                .contains(firstResult);
+    }
+
+    @Test
     void rejectsCrossTenantWritesWhenTheConnectionOwnerDoesNotMatch() {
         UUID connectionId = UUID.randomUUID();
         insertConnection(connectionId, "tenant-1", "user-1");
@@ -262,5 +310,16 @@ class ClassificationSuggestionStoreTest {
                 "history-1",
                 null,
                 Instant.parse("2026-08-21T10:00:00Z"))));
+    }
+
+    private ClassificationSuggestionRecord saveAfter(
+            CountDownLatch start, ClassificationSuggestionRecord suggestion) {
+        try {
+            assertThat(start.await(10, TimeUnit.SECONDS)).isTrue();
+            return service.saveIfAbsent(suggestion);
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(error);
+        }
     }
 }
