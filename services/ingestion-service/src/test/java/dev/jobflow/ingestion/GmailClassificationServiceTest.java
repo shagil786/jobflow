@@ -16,6 +16,10 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @DataJpaTest
 @Import({
@@ -30,6 +34,7 @@ import org.springframework.context.annotation.Import;
     IdentityCandidateExtractor.class,
     GmailClassificationServiceTest.Config.class
 })
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class GmailClassificationServiceTest {
     @Autowired
     private GmailClassificationService service;
@@ -45,6 +50,9 @@ class GmailClassificationServiceTest {
 
     @Autowired
     private GmailMessageRepository messages;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Autowired
     private FakeGmailApiClient gmail;
@@ -165,15 +173,18 @@ class GmailClassificationServiceTest {
     }
 
     private void insertConnection(UUID connectionId, String tenantId, String userId) {
-        connections.save(new GmailConnectionEntity(new StoredGmailConnection(
-                connectionId,
-                userId,
-                tenantId,
-                userId + "@example.com",
-                "encrypted:refresh",
-                "history-1",
-                null,
-                Instant.parse("2026-08-21T10:00:00Z"))));
+        inCommittedTransaction(() -> {
+            connections.save(new GmailConnectionEntity(new StoredGmailConnection(
+                    connectionId,
+                    userId,
+                    tenantId,
+                    userId + "@example.com",
+                    "encrypted:refresh",
+                    "history-1",
+                    null,
+                    Instant.parse("2026-08-21T10:00:00Z"))));
+            connections.flush();
+        });
     }
 
     private void insertMessageMetadata(
@@ -182,19 +193,25 @@ class GmailClassificationServiceTest {
             String userId,
             String messageId,
             String threadId) {
-        messages.save(new GmailMessageEntity(new GmailMessageMetadata(
-                connectionId,
-                tenantId,
-                userId,
-                messageId,
-                threadId,
-                "recruiter@example.com",
-                null,
-                "jobflow@example.com",
-                "Status update",
-                Instant.parse("2026-08-21T10:00:00Z"),
-                "INBOX",
-                null)));
+        inCommittedTransaction(() -> messages.save(new GmailMessageEntity(new GmailMessageMetadata(
+                    connectionId,
+                    tenantId,
+                    userId,
+                    messageId,
+                    threadId,
+                    "recruiter@example.com",
+                    null,
+                    "jobflow@example.com",
+                    "Status update",
+                    Instant.parse("2026-08-21T10:00:00Z"),
+                    "INBOX",
+                    null))));
+    }
+
+    private void inCommittedTransaction(Runnable action) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.executeWithoutResult(status -> action.run());
     }
 
     private static SafeGmailMessage inboundBody(String messageId, String threadId, String subject, String body) {
