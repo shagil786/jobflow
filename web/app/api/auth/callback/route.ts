@@ -45,7 +45,7 @@ export async function GET(request: Request) {
     const tenantId = typeof explicitTenantId === "string" && explicitTenantId.trim() ? explicitTenantId : userId ? `personal:${createHash("sha256").update(userId).digest("hex")}` : null;
     if (!userId || !tenantId) return failure("The verified identity has no JobFlow tenant", 403);
     const session = await createServerSession({ userId, tenantId, provider: config.issuerUri, accessToken: validated.accessToken, refreshToken: validated.refreshToken, accessTokenExpiresAt: new Date(Date.now() + validated.expiresIn * 1000).toISOString() });
-    const response = NextResponse.redirect(new URL("/", request.url));
+    const response = NextResponse.redirect(new URL("/", config.redirectUri));
     response.cookies.set(SESSION_COOKIE, session.sessionId, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", maxAge: 60 * 60 * 24 * 30, path: "/" });
     response.cookies.delete("jobflow_oidc_state"); response.cookies.delete("jobflow_oidc_verifier"); response.cookies.delete("jobflow_oidc_nonce");
     return response;
