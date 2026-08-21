@@ -15,12 +15,18 @@ export async function POST() {
     if (!statusResponse.ok) return NextResponse.json({ error: { code: "INGESTION_UNAVAILABLE", message: "Gmail connection status is unavailable" }, meta: {} }, { status: 503 });
     const status = await statusResponse.json() as { connectionId?: string; connected?: boolean };
     if (!status.connected || !status.connectionId) return NextResponse.json({ error: { code: "GMAIL_NOT_CONNECTED", message: "Connect Gmail before syncing" }, meta: {} }, { status: 409 });
-    const syncResponse = await fetch(`${ingestion}/internal/v1/gmail/connections/${encodeURIComponent(status.connectionId)}/sync`, { method: "POST", headers, cache: "no-store", signal: AbortSignal.timeout(30000) });
-    if (!syncResponse.ok) {
-      if (syncResponse.status === 422) return NextResponse.json({ error: { code: "GMAIL_TRACK_LABEL_NOT_FOUND", message: "Create the Gmail label JobFlow/Track, then sync again" }, meta: {} }, { status: 422 });
-      return NextResponse.json({ error: { code: "GMAIL_SYNC_FAILED", message: "Gmail sync could not be completed" }, meta: {} }, { status: 502 });
+    const backfillResponse = await fetch(`${ingestion}/internal/v1/gmail/backfills?${query}`, {
+      method: "POST",
+      headers: { ...headers, "Idempotency-Key": `dashboard-sync:${status.connectionId}:${new Date().toISOString().slice(0, 10)}`, "content-type": "application/json" },
+      body: JSON.stringify({ connectionId: status.connectionId, mode: "AUTOMATIC" }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!backfillResponse.ok) {
+      if (backfillResponse.status === 409) return NextResponse.json({ error: { code: "GMAIL_SYNC_ALREADY_RUNNING", message: "Gmail is already scanning in the background" }, meta: {} }, { status: 409 });
+      return NextResponse.json({ error: { code: "GMAIL_SYNC_FAILED", message: "Gmail scan could not be started" }, meta: {} }, { status: 502 });
     }
-    return new NextResponse(await syncResponse.text(), { status: 200, headers: { "content-type": "application/json" } });
+    return new NextResponse(JSON.stringify({ started: true, ...(await backfillResponse.json()) }), { status: 202, headers: { "content-type": "application/json" } });
   } catch {
     return NextResponse.json({ error: { code: "GMAIL_SYNC_UNAVAILABLE", message: "Gmail sync is temporarily unavailable" }, meta: {} }, { status: 503 });
   }
