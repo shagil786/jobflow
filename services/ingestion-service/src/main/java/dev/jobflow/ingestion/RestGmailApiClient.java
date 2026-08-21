@@ -218,6 +218,9 @@ public class RestGmailApiClient implements GmailApiClient {
         if (payload == null) {
             return;
         }
+        if (isAttachmentPart(payload)) {
+            return;
+        }
         if (isTextPayload(payload)) {
             content.add(payload.mimeType, decode(payload.body.data));
         }
@@ -237,6 +240,14 @@ public class RestGmailApiClient implements GmailApiClient {
         }
         String mimeType = payload.mimeType == null ? "" : payload.mimeType.toLowerCase(Locale.ROOT);
         return mimeType.startsWith("text/plain") || mimeType.startsWith("text/html");
+    }
+
+    private static boolean isAttachmentPart(PayloadDto payload) {
+        return hasText(payload.filename) || payload.body != null && hasText(payload.body.attachmentId);
+    }
+
+    private static boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private static String decode(String encoded) {

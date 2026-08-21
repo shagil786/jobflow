@@ -22,6 +22,19 @@ public record SafeGmailMessage(
         normalizedContentHash = blankToNull(normalizedContentHash);
     }
 
+    @Override
+    public String toString() {
+        return "SafeGmailMessage[messageId=" + messageId
+                + ", threadId=" + threadId
+                + ", recipientCount=" + recipients.size()
+                + ", labelCount=" + labelIds.size()
+                + ", hasSender=" + hasText(sender)
+                + ", hasSubject=" + hasText(subject)
+                + ", receivedAt=" + receivedAt
+                + ", normalizedContentHash=" + normalizedContentHash
+                + "]";
+    }
+
     GmailMessageMetadata toMetadata(UUID connectionId, String tenantId, String userId) {
         return new GmailMessageMetadata(
                 connectionId,

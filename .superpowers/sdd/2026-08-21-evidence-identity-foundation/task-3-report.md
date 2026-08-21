@@ -74,3 +74,39 @@ Notes:
 - No application status mutation or classifier behavior was added.
 - No UI, later-task files, or contract files were modified.
 - Sync behavior remains label-scoped to `JobFlow/Track`.
+
+## Task 3 Fix Round 1
+
+Review findings addressed with tests first:
+
+- `collectTextParts` now stops at any attachment-marked MIME node, including a named multipart attachment or a part with a Gmail `attachmentId`, so nested text descendants of attached `.eml` content cannot enter normalized content. Legitimate unnamed `multipart/alternative` and `multipart/mixed` body parts remain traversable.
+- `SafeGmailMessage.toString()` now emits only identifiers, metadata-presence flags, counts, timestamp, and normalized-content hash; it never emits `normalizedContent`.
+
+### Fix Round TDD Record
+
+RED command (run from `services/ingestion-service`):
+
+```bash
+mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=RestGmailApiClientTest,GmailSyncServiceTest test
+```
+
+Result: FAIL as expected with two reviewer regressions:
+
+- Nested text from `forwarded-message.eml` entered normalized content.
+- Generated `SafeGmailMessage.toString()` included `TOP SECRET EMAIL BODY`.
+
+GREEN focused reviewer suite:
+
+```bash
+mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=RestGmailApiClientTest,GmailSyncServiceTest test
+```
+
+Result: PASS
+
+GREEN full ingestion suite:
+
+```bash
+mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test
+```
+
+Result: PASS

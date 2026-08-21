@@ -9,6 +9,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -125,6 +126,88 @@ class RestGmailApiClientTest {
         assertThat(message.normalizedContent()).isEqualTo("Hello World & friends");
         assertThat(message.normalizedContent()).doesNotContain("<b>").doesNotContain("ATTACHMENT SECRET");
         assertThat(message.normalizedContentHash()).isEqualTo(sha256("Hello World & friends"));
+    }
+
+    @Test
+    void fetchMessageBodyForProcessingExcludesNestedTextInsideAttachmentParts() {
+        ClientFixture fixture = createClientFixture();
+        fixture.server()
+                .expect(request -> assertThat(request.getURI().getPath()).isEqualTo("/gmail/v1/users/me/messages/msg-attachment"))
+                .andRespond(withSuccess(
+                        """
+                        {
+                          "id": "msg-attachment",
+                          "threadId": "thread-attachment",
+                          "payload": {
+                            "mimeType": "multipart/mixed",
+                            "parts": [
+                              {
+                                "mimeType": "multipart/alternative",
+                                "parts": [
+                                  {
+                                    "mimeType": "text/plain",
+                                    "body": {"data": "%s"}
+                                  },
+                                  {
+                                    "mimeType": "text/html",
+                                    "body": {"data": "%s"}
+                                  }
+                                ]
+                              },
+                              {
+                                "mimeType": "multipart/mixed",
+                                "filename": "forwarded-message.eml",
+                                "parts": [
+                                  {
+                                    "mimeType": "text/plain",
+                                    "body": {"data": "%s"}
+                                  },
+                                  {
+                                    "mimeType": "multipart/alternative",
+                                    "parts": [
+                                      {
+                                        "mimeType": "text/html",
+                                        "body": {"data": "%s"}
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                        """
+                                .formatted(
+                                        encode("Legitimate body text"),
+                                        encode("<p>Legitimate body html</p>"),
+                                        encode("Nested attached eml secret"),
+                                        encode("<p>Nested attached html secret</p>")),
+                        MediaType.APPLICATION_JSON));
+
+        SafeGmailMessage message = fixture.client().fetchMessageBodyForProcessing("access-token", "msg-attachment");
+
+        fixture.server().verify();
+        assertThat(message.normalizedContent()).isEqualTo("Legitimate body text");
+        assertThat(message.normalizedContent())
+                .doesNotContain("Nested attached eml secret")
+                .doesNotContain("Nested attached html secret");
+    }
+
+    @Test
+    void safeGmailMessageToStringDoesNotIncludeNormalizedContent() {
+        SafeGmailMessage message = new SafeGmailMessage(
+                "msg-debug",
+                "thread-debug",
+                "sender@example.com",
+                null,
+                List.of("recipient@example.com"),
+                "Subject",
+                Instant.parse("2026-08-21T10:15:30Z"),
+                List.of("Label_JobFlowTrack"),
+                "TOP SECRET EMAIL BODY",
+                "hash");
+
+        assertThat(message.toString()).doesNotContain("TOP SECRET EMAIL BODY");
     }
 
     @Test
