@@ -23,6 +23,12 @@ type ApiApplication = {
   updatedAt: string;
 };
 
+type ReviewSuggestion = {
+  connectionId: string;
+  suggestion: { suggestionId: string; messageId: string; threadId: string; intent: string; confidence: number; company?: { value?: string }; role?: { value?: string }; applicationDate?: { value?: string }; contact?: { value?: string }; missingFields: string[] };
+};
+type ReviewPayload = { decision: "ACCEPT" | "CORRECT" | "DISMISS"; company?: string; role?: string };
+
 export default function Home() {
   const [actions, setActions] = useState<Action[]>([]);
   const [filter, setFilter] = useState("All");
@@ -37,12 +43,16 @@ export default function Home() {
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailSyncing, setGmailSyncing] = useState(false);
   const [gmailSyncMessage, setGmailSyncMessage] = useState("");
+  const [reviews, setReviews] = useState<ReviewSuggestion[]>([]);
+  const [reviewLoadState, setReviewLoadState] = useState<"loading" | "ready" | "unavailable">("loading");
+  const [reviewSaving, setReviewSaving] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    Promise.all([fetch("/api/applications", { cache: "no-store" }), fetch("/api/gmail/status", { cache: "no-store" })])
-      .then(async ([response, gmailResponse]) => {
+    Promise.all([fetch("/api/applications", { cache: "no-store" }), fetch("/api/gmail/status", { cache: "no-store" }), fetch("/api/reviews", { cache: "no-store" })])
+      .then(async ([response, gmailResponse, reviewResponse]) => {
         if (gmailResponse.ok) { const status = await gmailResponse.json() as { connected?: boolean }; setGmailConnected(status.connected === true); }
+        if (reviewResponse.ok) { setReviews(await reviewResponse.json() as ReviewSuggestion[]); setReviewLoadState("ready"); } else setReviewLoadState("unavailable");
         if (response.status === 401) { setLoadState("auth"); return []; }
         if (!response.ok) throw new Error("application service unavailable");
         return response.json() as Promise<ApiApplication[]>;
@@ -65,6 +75,16 @@ export default function Home() {
     }
   };
   const review = (message: string) => notify(message);
+  const saveReview = async (suggestionId: string, payload: ReviewPayload) => {
+    setReviewSaving(suggestionId);
+    try {
+      const response = await fetch(`/api/reviews/${encodeURIComponent(suggestionId)}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      if (!response.ok) throw new Error("review failed");
+      setReviews((current) => current.filter((item) => item.suggestion.suggestionId !== suggestionId));
+      notify(payload.decision === "DISMISS" ? "Suggestion dismissed. It will stay out of your action queue." : "Suggestion confirmed. It is ready for the next workflow step.");
+    } catch { notify("That review was not saved. Nothing was changed."); }
+    finally { setReviewSaving(null); }
+  };
   const signOut = async () => {
     setSignOutSaving(true);
     try {
@@ -148,7 +168,7 @@ export default function Home() {
           </section>
 
           <div>
-            <section className="section-card review-card" aria-labelledby="review-heading"><div className="section-head"><div><h2 id="review-heading" className="section-title">Needs your review</h2><p className="section-caption">AI suggestions will appear here only after real scoped email data is processed.</p></div><span className="count-pill">0 items</span></div><div className="empty-state">No unreviewed suggestions.</div></section>
+            <section className="section-card review-card" aria-labelledby="review-heading"><div className="section-head"><div><h2 id="review-heading" className="section-title">Needs your review</h2><p className="section-caption">Confirm or dismiss grounded suggestions before they influence your timeline.</p></div><span className="count-pill">{reviews.length} items</span></div>{reviewLoadState === "unavailable" ? <div className="empty-state">Review queue is unavailable. No local suggestions are shown.</div> : reviews.length ? <div className="review-list">{reviews.map((item) => <ReviewRow key={item.suggestion.suggestionId} item={item} saving={reviewSaving === item.suggestion.suggestionId} onDecision={saveReview} />)}</div> : <div className="empty-state">No unreviewed suggestions.</div>}</section>
             <section className="section-card insight-card" aria-labelledby="insight-heading"><div className="section-head"><div><h2 id="insight-heading" className="section-title">Your signals</h2><p className="section-caption">Insights will be calculated from confirmed outcomes.</p></div></div><div className="empty-state">Capture and confirm applications to see real patterns.</div></section>
             <section className="section-card stats-card" aria-labelledby="stats-heading"><div className="section-head"><div><h2 id="stats-heading" className="section-title">This month</h2><p className="section-caption">Only confirmed records are counted.</p></div></div><div className="empty-state">No outcome data yet.</div></section>
           </div>
@@ -163,6 +183,13 @@ export default function Home() {
 
 function Metric({ label, value, note }: { label: string; value: string; note: string }) { return <div className="metric"><div className="metric-label">{label}</div><div className="metric-value">{value}</div><div className="metric-note">{note}</div></div>; }
 function ActionRow({ action, onComplete, onOpen }: { action: Action; onComplete: (id: string) => void; onOpen: () => void }) { return <article className="action-row"><span className={`priority-dot ${action.tone}`} aria-hidden="true" /><div><button className="action-title" type="button" onClick={onOpen}>{action.title}</button><div className="action-meta"><strong>{action.company}</strong><span>{action.role}</span><span>{action.date}</span></div></div><div><span className={`action-type ${action.tone}`}>{action.kind}</span><button className="complete-button" type="button" onClick={() => onComplete(action.id)}>Mark done</button></div></article>; }
+function ReviewRow({ item, saving, onDecision }: { item: ReviewSuggestion; saving: boolean; onDecision: (id: string, payload: ReviewPayload) => void }) {
+  const suggestion = item.suggestion;
+  const [editing, setEditing] = useState(false);
+  const [company, setCompany] = useState(suggestion.company?.value ?? "");
+  const [role, setRole] = useState(suggestion.role?.value ?? "");
+  return <article className="review-row"><div><strong>{suggestion.company?.value ?? "Unknown company"}</strong><span className="review-intent">{suggestion.intent.replaceAll("_", " ").toLowerCase()}</span><p>{suggestion.role?.value ?? "Role needs confirmation"} · {Math.round(suggestion.confidence * 100)}% confidence</p><small>Message {suggestion.messageId} · {suggestion.missingFields.length ? `Missing: ${suggestion.missingFields.join(", ")}` : "Fields are complete"}</small>{editing && <div className="review-edit"><label>Company<input value={company} onChange={(event) => setCompany(event.target.value)} /></label><label>Role<input value={role} onChange={(event) => setRole(event.target.value)} /></label></div>}</div><div className="review-actions">{editing ? <button className="primary-button" type="button" disabled={saving} onClick={() => onDecision(suggestion.suggestionId, { decision: "CORRECT", company, role })}>{saving ? "Saving…" : "Save correction"}</button> : <><button className="outline-button" type="button" disabled={saving} onClick={() => onDecision(suggestion.suggestionId, { decision: "DISMISS" })}>Dismiss</button><button className="outline-button" type="button" disabled={saving} onClick={() => setEditing(true)}>Correct</button><button className="primary-button" type="button" disabled={saving} onClick={() => onDecision(suggestion.suggestionId, { decision: "ACCEPT" })}>{saving ? "Saving…" : "Confirm"}</button></>}</div></article>;
+}
 function Stat({ label, value, percent }: { label: string; value: string; percent: string }) { return <div><div className="stat-line"><span>{label}</span><strong>{value}</strong></div><div className="bar"><span style={{ width: percent }} /></div></div>; }
 function toAction(application: ApiApplication): Action {
   const isCaptured = application.status === "CAPTURED";

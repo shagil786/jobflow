@@ -33,6 +33,16 @@ class IngestionExceptionHandler {
                 .body(error("GMAIL_FETCH_FAILED", "Gmail fetch failed", request));
     }
 
+    @ExceptionHandler(UnknownClassificationSuggestionException.class)
+    ResponseEntity<ApiError> handleUnknownSuggestion(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("CLASSIFICATION_SUGGESTION_NOT_FOUND", "Classification suggestion not found", request));
+    }
+
+    @ExceptionHandler(ClassificationReviewStateException.class)
+    ResponseEntity<ApiError> handleReviewState(ClassificationReviewStateException exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error("CLASSIFICATION_REVIEW_CONFLICT", exception.getMessage(), request));
+    }
+
     private static ApiError error(String code, String message, HttpServletRequest request) {
         return new ApiError(code, message, request.getHeader("X-Request-Id"));
     }

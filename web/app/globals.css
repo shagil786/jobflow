@@ -98,6 +98,15 @@ h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; line-height: 1; 
 .empty-state { padding: 30px 21px; text-align: center; color: var(--muted); font-size: 13px; }
 
 .review-card { margin-bottom: 19px; }
+.review-list { display: grid; gap: 1px; background: var(--line); }
+.review-row { display: flex; justify-content: space-between; gap: 16px; padding: 17px 21px; background: var(--paper); }
+.review-row p, .review-row small { display: block; margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.review-intent { display: inline-block; margin-left: 8px; color: var(--blue); font-size: 11px; text-transform: capitalize; }
+.review-actions { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+.review-edit { display: flex; gap: 8px; margin-top: 12px; }
+.review-edit label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
+.review-edit input { width: 150px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
+@media (max-width: 600px) { .review-row { display: grid; } .review-actions { justify-content: end; } }
 .review-list { padding: 0 21px 20px; display: grid; gap: 10px; }
 .review-item { border: 1px solid var(--line); border-radius: 11px; padding: 13px; }
 .review-top { display: flex; justify-content: space-between; gap: 8px; }

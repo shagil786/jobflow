@@ -180,6 +180,10 @@ public class ClassificationSuggestionEntity {
         return classifierVersion;
     }
 
+    String suggestionId() {
+        return suggestionId;
+    }
+
     String contentHash() {
         return contentHash;
     }
