@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: job-service
+  datasource:
+    url: ${JOBFLOW_JOB_DB_URL:jdbc:h2:file:./data/jobflow-jobs;AUTO_SERVER=TRUE}
+    username: ${JOBFLOW_JOB_DB_USERNAME:sa}
+    password: ${JOBFLOW_JOB_DB_PASSWORD:}
+    driver-class-name: ${JOBFLOW_JOB_DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: ${JOBFLOW_JOB_DDL_AUTO:validate}
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JOBFLOW_OIDC_ISSUER_URI}
+server:
+  port: ${JOBFLOW_JOB_PORT:8091}
+  error:
+    include-message: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

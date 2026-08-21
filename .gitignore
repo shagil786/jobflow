@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+dist/
+*.log
+.m2/
+.env
+.env.*
+!.env.example
+target/
+data/
+coverage/

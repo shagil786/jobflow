@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: ${JOBFLOW_IDENTITY_DB_URL:jdbc:h2:file:./data/jobflow-identity}
+    username: ${JOBFLOW_IDENTITY_DB_USERNAME:sa}
+    password: ${JOBFLOW_IDENTITY_DB_PASSWORD:}
+    driver-class-name: ${JOBFLOW_IDENTITY_DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: ${JOBFLOW_IDENTITY_DDL_AUTO:validate}
+    open-in-view: false
+  h2:
+    console:
+      enabled: false
+server:
+  port: ${JOBFLOW_IDENTITY_PORT:8081}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

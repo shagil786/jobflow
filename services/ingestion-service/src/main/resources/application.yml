@@ -1,0 +1,19 @@
+spring:
+  application:
+    name: ingestion-service
+  datasource:
+    url: ${JOBFLOW_INGESTION_DB_URL:jdbc:h2:file:./data/jobflow-ingestion}
+    username: ${JOBFLOW_INGESTION_DB_USERNAME:sa}
+    password: ${JOBFLOW_INGESTION_DB_PASSWORD:}
+    driver-class-name: ${JOBFLOW_INGESTION_DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+server:
+  port: ${JOBFLOW_INGESTION_PORT:8082}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
