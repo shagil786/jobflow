@@ -18,10 +18,12 @@ public class GmailConnectionEntity {
     @Column(length = 255, nullable = false) private String lastHistoryId;
     @Column(length = 255) private String pageToken;
     @Column(nullable = false) private Instant connectedAt;
+    @Column(nullable = false) private boolean active;
     protected GmailConnectionEntity() {}
     String getUserId() { return userId; }
     String getTenantId() { return tenantId; }
     GmailConnectionEntity(StoredGmailConnection value) { update(value); }
-    void update(StoredGmailConnection value) { connectionId=value.connectionId(); userId=value.userId(); tenantId=value.tenantId(); email=value.email(); refreshTokenCiphertext=value.refreshTokenCiphertext(); lastHistoryId=value.lastHistoryId(); pageToken=value.pageToken(); connectedAt=value.connectedAt(); }
-    StoredGmailConnection toModel() { return new StoredGmailConnection(connectionId,userId,tenantId,email,refreshTokenCiphertext,lastHistoryId,pageToken,connectedAt); }
+    void setActive(boolean active) { this.active = active; }
+    void update(StoredGmailConnection value) { connectionId=value.connectionId(); userId=value.userId(); tenantId=value.tenantId(); email=value.email(); refreshTokenCiphertext=value.refreshTokenCiphertext(); lastHistoryId=value.lastHistoryId(); pageToken=value.pageToken(); connectedAt=value.connectedAt(); active=value.active(); }
+    StoredGmailConnection toModel() { return new StoredGmailConnection(connectionId,userId,tenantId,email,refreshTokenCiphertext,lastHistoryId,pageToken,connectedAt,active); }
 }

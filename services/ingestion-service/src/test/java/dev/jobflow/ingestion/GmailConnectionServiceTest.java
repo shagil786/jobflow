@@ -83,6 +83,18 @@ class GmailConnectionServiceTest {
         assertThat(store.find(first.connectionId()).orElseThrow().lastHistoryId()).isEqualTo("history-2");
     }
 
+    @Test
+    void selectsTheNewlyConnectedMailboxWhenConnectedAtTimestampsTie() {
+        InMemoryGmailConnectionStore store = new InMemoryGmailConnectionStore();
+        GmailConnectionService service = new GmailConnectionService(store, new TestCipher(), Clock.fixed(NOW, ZoneOffset.UTC));
+
+        service.connect(new GmailConnectionCommand("user-1", "tenant-1", "first@gmail.com", "refresh-1", "history-1"));
+        GmailConnectionRecord second = service.connect(new GmailConnectionCommand("user-1", "tenant-1", "second@gmail.com", "refresh-2", "history-2"));
+
+        assertThat(service.status("tenant-1", "user-1").connectionId()).isEqualTo(second.connectionId());
+        assertThat(service.status("tenant-1", "user-1").email()).isEqualTo("second@gmail.com");
+    }
+
     private static final class TestCipher implements GmailTokenCipher {
         @Override public String encrypt(String value) { return "encrypted:" + value; }
         @Override public String decrypt(String value) { return value.substring("encrypted:".length()); }
@@ -95,6 +107,8 @@ class GmailConnectionServiceTest {
         @Override public Optional<StoredGmailConnection> findByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId)).findFirst(); }
         @Override public Optional<StoredGmailConnection> findByOwnerAndEmail(String tenantId, String userId, String email) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId) && v.email().equalsIgnoreCase(email)).findFirst(); }
         @Override public List<StoredGmailConnection> findAllByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId)).sorted((a, b) -> b.connectedAt().compareTo(a.connectedAt())).toList(); }
+        @Override public StoredGmailConnection saveAsActive(StoredGmailConnection value) { values.replaceAll((id, existing) -> existing.tenantId().equals(value.tenantId()) && existing.userId().equals(value.userId()) ? existing.withActive(false) : existing); return save(value.withActive(true)); }
+        @Override public Optional<StoredGmailConnection> findActiveByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.active() && v.tenantId().equals(tenantId) && v.userId().equals(userId)).findFirst(); }
         String rawRefreshToken(UUID id) { return values.get(id).refreshTokenCiphertext(); }
     }
 }

@@ -5,7 +5,7 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/evidence-iden
 
 ## Summary
 
-Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gmail connection uniqueness with normalized `(tenant_id, user_id, email)` identity. Same-mailbox reconnects remain idempotent, different mailboxes receive distinct connection IDs, and status explicitly handles multiple rows. All Gmail calls used by sync map upstream, auth, network, malformed-response, and fetch failures to typed safe errors.
+Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gmail connection uniqueness with normalized `(tenant_id, user_id, email)` identity, and V7 adds a persisted active-mailbox marker. Connect transactionally activates the newly connected mailbox, status reads that marker, and equal `connectedAt` values cannot make status select an arbitrary row. All Gmail calls used by sync map upstream, auth, network, malformed-response, and fetch failures to typed safe errors.
 
 ## Verification Results
 
@@ -15,7 +15,9 @@ Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gma
   - Unknown connections on the internal sync and cursor routes are covered by `GmailConnectionControllerTest` and return `404` with `{"code":"GMAIL_CONNECTION_NOT_FOUND","message":"Gmail connection not found"}`; neither response includes owner/tenant data.
   - Cross-tenant message lookup remains non-returning and is already covered by `GmailMessageStoreTest`.
   - Same-mailbox reconnect identity reuse and different-mailbox identity separation are covered by `GmailConnectionServiceTest`.
-  - `GmailConnectionPersistenceTest` applies all six Flyway migrations and persists two same-owner mailboxes with distinct IDs while preserving same-mailbox idempotency.
+  - `GmailConnectionPersistenceTest` applies all seven Flyway migrations and persists two same-owner mailboxes with distinct IDs while preserving same-mailbox idempotency.
+  - `GmailConnectionServiceTest` proves equal timestamps select the newly connected mailbox deterministically; reconnecting another mailbox makes that mailbox active.
+  - `GmailConnectionPersistenceTest` applies the legacy schema through V7, verifies the owner-only index is gone, verifies the normalized mailbox index exists, allows the same normalized email for different owners, and rejects a duplicate same-owner/mailbox row at the database boundary.
   - First-insert owner mismatches are covered by `GmailMessageStoreTest` and `GmailThreadStoreTest`; both reject before persistence.
 
 - Controlled errors:
@@ -32,6 +34,7 @@ Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gma
 ## Checks Run
 
 - Backend:
+  - `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailConnectionPersistenceTest,GmailConnectionServiceTest test` — passed.
   - `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailConnectionPersistenceTest,GmailConnectionServiceTest,RestGmailApiClientTest,GmailConnectionControllerTest test` — passed.
   - `cd services/ingestion-service && mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test` — passed.
 

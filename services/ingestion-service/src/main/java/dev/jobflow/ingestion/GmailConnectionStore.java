@@ -10,4 +10,6 @@ public interface GmailConnectionStore {
     Optional<StoredGmailConnection> findByOwner(String tenantId, String userId);
     Optional<StoredGmailConnection> findByOwnerAndEmail(String tenantId, String userId, String email);
     List<StoredGmailConnection> findAllByOwner(String tenantId, String userId);
+    StoredGmailConnection saveAsActive(StoredGmailConnection connection);
+    Optional<StoredGmailConnection> findActiveByOwner(String tenantId, String userId);
 }

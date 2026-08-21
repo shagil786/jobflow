@@ -108,6 +108,8 @@ class GmailSyncServiceTest {
         @Override public Optional<StoredGmailConnection> findByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId)).findFirst(); }
         @Override public Optional<StoredGmailConnection> findByOwnerAndEmail(String tenantId, String userId, String email) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId) && v.email().equalsIgnoreCase(email)).findFirst(); }
         @Override public List<StoredGmailConnection> findAllByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId)).toList(); }
+        @Override public StoredGmailConnection saveAsActive(StoredGmailConnection value) { values.replaceAll((key, existing) -> existing.tenantId().equals(value.tenantId()) && existing.userId().equals(value.userId()) ? existing.withActive(false) : existing); return save(value.withActive(true)); }
+        @Override public Optional<StoredGmailConnection> findActiveByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.active() && v.tenantId().equals(tenantId) && v.userId().equals(userId)).findFirst(); }
     }
 
     private static final class InMemoryMessages implements GmailMessageStore {

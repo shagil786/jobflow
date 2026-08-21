@@ -12,4 +12,5 @@ public interface GmailConnectionRepository extends JpaRepository<GmailConnection
     Optional<GmailConnectionEntity> findByTenantIdAndUserId(String tenantId, String userId);
     Optional<GmailConnectionEntity> findByTenantIdAndUserIdAndEmailIgnoreCase(String tenantId, String userId, String email);
     List<GmailConnectionEntity> findAllByTenantIdAndUserIdOrderByConnectedAtDesc(String tenantId, String userId);
+    List<GmailConnectionEntity> findAllByTenantIdAndUserIdAndActiveTrueOrderByConnectedAtDescConnectionIdDesc(String tenantId, String userId);
 }
