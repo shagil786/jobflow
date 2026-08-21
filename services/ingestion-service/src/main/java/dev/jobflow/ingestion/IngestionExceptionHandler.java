@@ -33,6 +33,12 @@ class IngestionExceptionHandler {
                 .body(error("GMAIL_FETCH_FAILED", "Gmail fetch failed", request));
     }
 
+    @ExceptionHandler(GmailTrackLabelNotFoundException.class)
+    ResponseEntity<ApiError> handleMissingTrackLabel(HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+                .body(error("GMAIL_TRACK_LABEL_NOT_FOUND", "Create the Gmail label JobFlow/Track, then sync again", request));
+    }
+
     @ExceptionHandler(UnknownClassificationSuggestionException.class)
     ResponseEntity<ApiError> handleUnknownSuggestion(HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error("CLASSIFICATION_SUGGESTION_NOT_FOUND", "Classification suggestion not found", request));

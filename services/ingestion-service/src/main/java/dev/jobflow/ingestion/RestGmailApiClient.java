@@ -82,7 +82,7 @@ public class RestGmailApiClient implements GmailApiClient {
         try {
             LabelListResponse response = client.get().uri(gmailEndpoint + "/labels").header("Authorization", "Bearer " + accessToken).retrieve().body(LabelListResponse.class);
             if (response != null && response.labels != null) for (LabelDto label : response.labels) if (GmailSyncScope.TRACK_LABEL.equals(label.name)) return label.id;
-            throw fetchFailure("Gmail label JobFlow/Track was not found");
+            throw new GmailTrackLabelNotFoundException();
         } catch (RestClientException e) {
             throw new GmailFetchException(e);
         }

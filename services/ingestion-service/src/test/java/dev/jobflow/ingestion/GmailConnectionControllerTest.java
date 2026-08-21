@@ -85,4 +85,15 @@ class GmailConnectionControllerTest {
                 .andExpect(content().string(not(containsString("secret"))))
                 .andExpect(content().string(not(containsString("response body"))));
     }
+
+    @Test
+    void returnsActionableLabelGuidanceWithoutLeakingProviderData() throws Exception {
+        UUID connectionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
+        when(syncService.sync(connectionId)).thenThrow(new GmailTrackLabelNotFoundException());
+
+        mvc.perform(post("/internal/v1/gmail/connections/" + connectionId + "/sync")
+                        .header("X-Internal-Service-Key", "test-key"))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(content().json("{\"code\":\"GMAIL_TRACK_LABEL_NOT_FOUND\",\"message\":\"Create the Gmail label JobFlow/Track, then sync again\"}"));
+    }
 }

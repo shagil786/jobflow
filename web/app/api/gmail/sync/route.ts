@@ -16,7 +16,10 @@ export async function POST() {
     const status = await statusResponse.json() as { connectionId?: string; connected?: boolean };
     if (!status.connected || !status.connectionId) return NextResponse.json({ error: { code: "GMAIL_NOT_CONNECTED", message: "Connect Gmail before syncing" }, meta: {} }, { status: 409 });
     const syncResponse = await fetch(`${ingestion}/internal/v1/gmail/connections/${encodeURIComponent(status.connectionId)}/sync`, { method: "POST", headers, cache: "no-store", signal: AbortSignal.timeout(30000) });
-    if (!syncResponse.ok) return NextResponse.json({ error: { code: "GMAIL_SYNC_FAILED", message: "Gmail sync could not be completed" }, meta: {} }, { status: 502 });
+    if (!syncResponse.ok) {
+      if (syncResponse.status === 422) return NextResponse.json({ error: { code: "GMAIL_TRACK_LABEL_NOT_FOUND", message: "Create the Gmail label JobFlow/Track, then sync again" }, meta: {} }, { status: 422 });
+      return NextResponse.json({ error: { code: "GMAIL_SYNC_FAILED", message: "Gmail sync could not be completed" }, meta: {} }, { status: 502 });
+    }
     return new NextResponse(await syncResponse.text(), { status: 200, headers: { "content-type": "application/json" } });
   } catch {
     return NextResponse.json({ error: { code: "GMAIL_SYNC_UNAVAILABLE", message: "Gmail sync is temporarily unavailable" }, meta: {} }, { status: 503 });
