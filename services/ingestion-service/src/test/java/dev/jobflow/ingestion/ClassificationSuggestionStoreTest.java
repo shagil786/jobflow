@@ -1,0 +1,219 @@
+package dev.jobflow.ingestion;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+@DataJpaTest
+@Import(JpaClassificationSuggestionStore.class)
+class ClassificationSuggestionStoreTest {
+    @Autowired
+    private ClassificationSuggestionStore store;
+
+    @Autowired
+    private ClassificationSuggestionRepository repository;
+
+    @Autowired
+    private GmailConnectionRepository connections;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Test
+    void savesSuggestionsIdempotentlyAndDropsQuotedEvidenceTextBeforePersistence() {
+        UUID connectionId = UUID.randomUUID();
+        insertConnection(connectionId, "tenant-1", "user-1");
+        ClassificationSuggestionRecord first = suggestionRecord(
+                connectionId,
+                "tenant-1",
+                "user-1",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-21-v1",
+                "hash-1",
+                "We are pleased to offer you the role.");
+
+        ClassificationSuggestionRecord saved = store.saveIfAbsent(first);
+        ClassificationSuggestionRecord replayed = store.saveIfAbsent(first);
+
+        assertThat(saved).isEqualTo(replayed);
+        assertThat(saved.suggestion().evidence()).allSatisfy(span -> assertThat(span.quotedText()).isNull());
+        assertThat(saved.suggestion().company()).isNotNull();
+        assertThat(saved.suggestion().company().evidence()).allSatisfy(span -> assertThat(span.quotedText()).isNull());
+        assertThat(repository.count()).isEqualTo(1);
+        assertThat(jdbcTemplate.queryForObject(
+                        "select evidence_json from classification_suggestions where suggestion_id = ?",
+                        String.class,
+                        saved.suggestion().suggestionId()))
+                .doesNotContain("We are pleased to offer you the role.");
+    }
+
+    @Test
+    void changedContentAndClassifierVersionCreateNewImmutableRowsAndLatestLookupReturnsNewest() {
+        UUID connectionId = UUID.randomUUID();
+        insertConnection(connectionId, "tenant-1", "user-1");
+
+        ClassificationSuggestionRecord first = suggestionRecord(
+                connectionId,
+                "tenant-1",
+                "user-1",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-21-v1",
+                "hash-1",
+                "application received");
+        ClassificationSuggestionRecord changedContent = suggestionRecord(
+                connectionId,
+                "tenant-1",
+                "user-1",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-21-v1",
+                "hash-2",
+                "regret to inform you");
+        ClassificationSuggestionRecord changedVersion = suggestionRecord(
+                connectionId,
+                "tenant-1",
+                "user-1",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-22-v2",
+                "hash-2",
+                "regret to inform you");
+
+        ClassificationSuggestionRecord savedFirst = store.saveIfAbsent(first);
+        ClassificationSuggestionRecord savedChangedContent = store.saveIfAbsent(changedContent);
+        ClassificationSuggestionRecord savedChangedVersion = store.saveIfAbsent(changedVersion);
+
+        assertThat(repository.count()).isEqualTo(3);
+        assertThat(savedChangedContent.suggestion().suggestionId()).isNotEqualTo(savedFirst.suggestion().suggestionId());
+        assertThat(savedChangedVersion.suggestion().suggestionId()).isNotEqualTo(savedChangedContent.suggestion().suggestionId());
+        assertThat(store.findLatestByProviderIdentity("tenant-1", "user-1", connectionId, "message-1"))
+                .contains(savedChangedVersion);
+    }
+
+    @Test
+    void rejectsCrossTenantWritesWhenTheConnectionOwnerDoesNotMatch() {
+        UUID connectionId = UUID.randomUUID();
+        insertConnection(connectionId, "tenant-1", "user-1");
+
+        assertThatThrownBy(() -> store.saveIfAbsent(suggestionRecord(
+                        connectionId,
+                        "tenant-2",
+                        "user-2",
+                        "message-1",
+                        "thread-1",
+                        "rules-2026-08-21-v1",
+                        "hash-1",
+                        "Thank you for applying")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("classification suggestion owner does not match the Gmail connection owner");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
+    void latestLookupRemainsTenantScoped() {
+        UUID firstConnectionId = UUID.randomUUID();
+        UUID secondConnectionId = UUID.randomUUID();
+        insertConnection(firstConnectionId, "tenant-1", "user-1");
+        insertConnection(secondConnectionId, "tenant-2", "user-2");
+        ClassificationSuggestionRecord firstTenant = suggestionRecord(
+                firstConnectionId,
+                "tenant-1",
+                "user-1",
+                "message-1",
+                "thread-1",
+                "rules-2026-08-21-v1",
+                "hash-1",
+                "Thank you for applying");
+        ClassificationSuggestionRecord secondTenant = suggestionRecord(
+                secondConnectionId,
+                "tenant-2",
+                "user-2",
+                "message-1",
+                "thread-9",
+                "rules-2026-08-21-v1",
+                "hash-9",
+                "Thank you for applying");
+
+        store.saveIfAbsent(firstTenant);
+        store.saveIfAbsent(secondTenant);
+
+        assertThat(store.findLatestByProviderIdentity("tenant-1", "user-1", firstConnectionId, "message-1"))
+                .hasValueSatisfying(record -> {
+                    assertThat(record.connectionId()).isEqualTo(firstConnectionId);
+                    assertThat(record.suggestion().tenantId()).isEqualTo("tenant-1");
+                    assertThat(record.suggestion().userId()).isEqualTo("user-1");
+                    assertThat(record.suggestion().messageId()).isEqualTo("message-1");
+                });
+        assertThat(store.findLatestByProviderIdentity("tenant-1", "user-1", secondConnectionId, "message-1")).isEmpty();
+    }
+
+    private static ClassificationSuggestionRecord suggestionRecord(
+            UUID connectionId,
+            String tenantId,
+            String userId,
+            String messageId,
+            String threadId,
+            String classifierVersion,
+            String contentHash,
+            String quotedText) {
+        EvidenceSpanV1 evidence = new EvidenceSpanV1(
+                tenantId,
+                userId,
+                "evidence-" + messageId + "-" + contentHash,
+                messageId,
+                threadId,
+                "body",
+                quotedText,
+                contentHash,
+                true);
+        ExtractedFieldCandidateV1<String> company = new ExtractedFieldCandidateV1<>(
+                "Example Corp",
+                0.91,
+                List.of(evidence),
+                "body",
+                true,
+                false);
+        ClassificationSuggestionV1 suggestion = new ClassificationSuggestionV1(
+                tenantId,
+                userId,
+                UUID.nameUUIDFromBytes((messageId + classifierVersion + contentHash).getBytes()).toString(),
+                messageId,
+                threadId,
+                MessageIntent.APPLICATION_CONFIRMATION,
+                MessageDirection.INBOUND,
+                company,
+                null,
+                null,
+                null,
+                0.91,
+                List.of(evidence),
+                List.of("role"),
+                List.of(),
+                true,
+                classifierVersion,
+                contentHash);
+        return new ClassificationSuggestionRecord(connectionId, suggestion);
+    }
+
+    private void insertConnection(UUID connectionId, String tenantId, String userId) {
+        connections.save(new GmailConnectionEntity(new StoredGmailConnection(
+                connectionId,
+                userId,
+                tenantId,
+                userId + "@example.com",
+                "encrypted:refresh",
+                "history-1",
+                null,
+                Instant.parse("2026-08-21T10:00:00Z"))));
+    }
+}
