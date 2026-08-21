@@ -16,6 +16,8 @@ public class JpaGmailThreadStore implements GmailThreadStore {
 
     @Override
     public GmailThreadRecord saveIfAbsent(UUID connectionId, String tenantId, String userId, String threadId) {
+        requireOwner(tenantId, "tenantId");
+        requireOwner(userId, "userId");
         GmailThreadEntity.GmailThreadId id = new GmailThreadEntity.GmailThreadId(connectionId, threadId);
         Optional<GmailThreadEntity> existing = repository.findById(id);
         if (existing.isPresent()) {
@@ -25,5 +27,11 @@ public class JpaGmailThreadStore implements GmailThreadStore {
             return existing.get().toRecord();
         }
         return repository.save(new GmailThreadEntity(connectionId, tenantId, userId, threadId)).toRecord();
+    }
+
+    private static void requireOwner(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be null or blank");
+        }
     }
 }

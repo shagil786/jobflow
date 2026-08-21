@@ -1,6 +1,7 @@
 package dev.jobflow.ingestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -42,6 +43,20 @@ class GmailThreadStoreTest {
         assertThat(first.userId()).isEqualTo("user-1");
         assertThat(first.threadId()).isEqualTo("thread-1");
         assertThat(second).isEqualTo(first);
+        assertThat(repository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void rejectsThreadOwnerMismatch() {
+        UUID connectionId = UUID.randomUUID();
+        connections.save(new GmailConnectionEntity(new StoredGmailConnection(
+                connectionId, "user-1", "tenant-1", "user-1@example.com", "encrypted:refresh", "history-1", null,
+                Instant.parse("2026-08-21T10:00:00Z"))));
+        store.saveIfAbsent(connectionId, "tenant-1", "user-1", "thread-1");
+
+        assertThatThrownBy(() -> store.saveIfAbsent(connectionId, "tenant-2", "user-2", "thread-1"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("gmail thread identity already belongs to a different owner");
         assertThat(repository.count()).isEqualTo(1);
     }
 }

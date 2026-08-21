@@ -107,3 +107,19 @@ Notes:
 
 - The suite prints a Mockito/JDK 26 warning about inline self-attachment, but the subclass mock-maker override prevents it from failing the focused run.
 - No later-task APIs or files outside this worktree were modified.
+
+## Round 1 review fixes
+
+- Enforced non-null ownership at the JPA schema/entity level for Gmail messages and validated null/blank `tenantId` and `userId` before message or thread persistence.
+- Replaced the V4 table rebuild/swap with additive `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` statements, an owner backfill joined to `gmail_connections`, `internal_date` to `received_at` mapping, post-backfill `NOT NULL` enforcement, and a composite provider-identity primary key. Existing message rows and the legacy connection/message index are retained.
+- Strengthened `FlywayMigrationTest` to migrate a database only through V3, insert a legacy message, then apply V4/V5 and assert row preservation, owner backfill, received-time backfill, and owner-column nullability.
+- Added a Gmail thread owner-mismatch test.
+- Retained the `GmailSyncService`/test metadata-construction update because the Task 2 `GmailMessageMetadata` contract now requires tenant/user ownership; without passing the already-loaded connection owner, ingestion would either fail the new pre-persistence ownership guard or persist an invalid contract. No later-task behavior was added.
+
+## Round 1 verification
+
+Passed with the reviewer's isolated Maven repository:
+
+`mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailMessageStoreTest,GmailThreadStoreTest,GmailConnectionServiceTest,FlywayMigrationTest test`
+
+The worktree remains scoped to Task 2 and this review-fix report update.

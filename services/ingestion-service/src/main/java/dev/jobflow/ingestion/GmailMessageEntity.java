@@ -16,10 +16,10 @@ public class GmailMessageEntity {
     @EmbeddedId
     private GmailMessageId id;
 
-    @Column(length = 120)
+    @Column(nullable = false, length = 120)
     private String tenantId;
 
-    @Column(length = 120)
+    @Column(nullable = false, length = 120)
     private String userId;
 
     @Column(nullable = false, length = 255)

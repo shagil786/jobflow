@@ -64,6 +64,23 @@ class GmailMessageStoreTest {
                 .hasMessage("gmail message identity already belongs to a different owner");
     }
 
+    @Test
+    void rejectsNullOrBlankOwnersBeforePersistence() {
+        UUID connectionId = UUID.randomUUID();
+        insertConnection(connectionId, "tenant-1", "user-1");
+
+        assertThatThrownBy(() -> store.saveIfAbsent(metadata(connectionId, null, "user-1", "message-null", "thread-1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("tenantId must not be null or blank");
+        assertThatThrownBy(() -> store.saveIfAbsent(metadata(connectionId, " ", "user-1", "message-blank", "thread-1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("tenantId must not be null or blank");
+        assertThatThrownBy(() -> store.saveIfAbsent(metadata(connectionId, "tenant-1", null, "message-null-user", "thread-1")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("userId must not be null or blank");
+        assertThat(repository.count()).isZero();
+    }
+
     private static GmailMessageMetadata metadata(UUID connectionId, String tenantId, String userId, String messageId, String threadId) {
         return new GmailMessageMetadata(
                 connectionId,

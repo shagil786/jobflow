@@ -16,6 +16,8 @@ public class JpaGmailMessageStore implements GmailMessageStore {
 
     @Override
     public boolean saveIfAbsent(GmailMessageMetadata message) {
+        requireOwner(message.tenantId(), "tenantId");
+        requireOwner(message.userId(), "userId");
         Optional<GmailMessageEntity> existing = repository.findByIdConnectionIdAndIdMessageId(
                 message.connectionId(), message.messageId());
         if (existing.isPresent()) {
@@ -26,6 +28,12 @@ public class JpaGmailMessageStore implements GmailMessageStore {
         }
         repository.save(new GmailMessageEntity(message));
         return true;
+    }
+
+    private static void requireOwner(String value, String field) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(field + " must not be null or blank");
+        }
     }
 
     @Override
