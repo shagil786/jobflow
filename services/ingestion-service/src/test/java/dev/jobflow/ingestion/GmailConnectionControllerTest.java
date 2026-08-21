@@ -2,6 +2,7 @@ package dev.jobflow.ingestion;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -41,11 +42,28 @@ class GmailConnectionControllerTest {
     @Test
     void returnsNotFoundForUnknownConnectionsWithoutLeakingOwnership() throws Exception {
         UUID connectionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
-        when(syncService.sync(connectionId)).thenThrow(new IllegalArgumentException("Gmail connection not found"));
+        when(syncService.sync(connectionId)).thenThrow(new UnknownGmailConnectionException());
 
         mvc.perform(post("/internal/v1/gmail/connections/" + connectionId + "/sync")
                         .header("X-Internal-Service-Key", "test-key"))
                 .andExpect(status().isNotFound())
+                .andExpect(content().json("{\"code\":\"GMAIL_CONNECTION_NOT_FOUND\",\"message\":\"Gmail connection not found\"}"))
+                .andExpect(content().string(not(containsString("owner"))))
+                .andExpect(content().string(not(containsString("tenant"))));
+    }
+
+    @Test
+    void returnsNotFoundForUnknownConnectionsOnCursorWithoutLeakingOwnership() throws Exception {
+        UUID connectionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
+        doThrow(new UnknownGmailConnectionException())
+                .when(service).advanceCursor(connectionId, new SyncCursor("history-8", "page-2"));
+
+        mvc.perform(post("/internal/v1/gmail/connections/" + connectionId + "/cursor")
+                        .header("X-Internal-Service-Key", "test-key")
+                        .contentType("application/json")
+                        .content("{\"historyId\":\"history-8\",\"pageToken\":\"page-2\"}"))
+                .andExpect(status().isNotFound())
+                .andExpect(content().json("{\"code\":\"GMAIL_CONNECTION_NOT_FOUND\",\"message\":\"Gmail connection not found\"}"))
                 .andExpect(content().string(not(containsString("owner"))))
                 .andExpect(content().string(not(containsString("tenant"))));
     }

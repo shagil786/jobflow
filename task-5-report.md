@@ -5,14 +5,14 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/evidence-iden
 
 ## Summary
 
-Task 5 verification is complete. The only code hardening needed was converting unknown Gmail connection failures on internal ingestion routes from unhandled server errors into controlled client-visible `404` responses.
+Task 5 round 1 review fixes are complete. Unknown Gmail connections on the internal `/sync` and `/cursor` routes now use a typed exception and return the same sanitized `404` envelope. The previous package-wide `IllegalArgumentException` handler and message-text classification were removed, so unrelated validation and unexpected errors are not converted into public `400` responses.
 
 ## Verification Results
 
 - Tenant and authorization boundaries:
   - Wrong internal key is covered by `GmailConnectionControllerTest` and returns `401`.
   - Missing internal key is covered by `GmailConnectionControllerTest` and returns a controlled `400`.
-  - Unknown connection on the internal sync route is now covered by `GmailConnectionControllerTest` and returns `404` without owner/tenant leakage.
+  - Unknown connections on the internal sync and cursor routes are covered by `GmailConnectionControllerTest` and return `404` with `{"code":"GMAIL_CONNECTION_NOT_FOUND","message":"Gmail connection not found"}`; neither response includes owner/tenant data.
   - Cross-tenant message lookup remains non-returning and is already covered by `GmailMessageStoreTest`.
 
 - Retention and logging:
@@ -24,14 +24,13 @@ Task 5 verification is complete. The only code hardening needed was converting u
 ## Checks Run
 
 - Backend:
-  - `cd services/ingestion-service && mvn -q -Dtest=GmailConnectionControllerTest,GmailConnectionServiceTest test`
-  - `cd services/ingestion-service && mvn test -q`
+  - `cd services/ingestion-service && mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test` — passed.
 
 - Web:
-  - `cd web && npm test -- --run`
-  - `cd web && npm run typecheck`
+  - `cd web && npm test -- --run` — passed: 13 test files, 28 tests.
+  - `cd web && npm run typecheck` — passed.
 
-All of the above passed on 2026-08-21.
+All required round 1 checks passed on 2026-08-21.
 
 ## Operational Smoke Checks
 

@@ -49,7 +49,7 @@ class GmailConnectionServiceTest {
         GmailConnectionService service = new GmailConnectionService(store, new TestCipher(), Clock.fixed(NOW, ZoneOffset.UTC));
 
         assertThatThrownBy(() -> service.advanceCursor(UUID.fromString("00000000-0000-0000-0000-000000000123"), new SyncCursor("history-8", "page-2")))
-                .isInstanceOf(IllegalArgumentException.class)
+                .isInstanceOf(UnknownGmailConnectionException.class)
                 .hasMessage("Gmail connection not found");
     }
 

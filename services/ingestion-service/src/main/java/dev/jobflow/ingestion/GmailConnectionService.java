@@ -30,7 +30,7 @@ public class GmailConnectionService {
     @Transactional
     public void advanceCursor(UUID connectionId, SyncCursor cursor) {
         StoredGmailConnection current = store.find(connectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Gmail connection not found"));
+                .orElseThrow(UnknownGmailConnectionException::new);
         store.save(current.withCursor(cursor));
     }
 

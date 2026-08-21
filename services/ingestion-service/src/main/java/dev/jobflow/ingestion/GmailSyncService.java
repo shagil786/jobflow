@@ -27,7 +27,7 @@ public class GmailSyncService {
 
     @Transactional
     public GmailSyncResult sync(UUID connectionId) {
-        StoredGmailConnection connection = connections.find(connectionId).orElseThrow(() -> new IllegalArgumentException("Gmail connection not found"));
+        StoredGmailConnection connection = connections.find(connectionId).orElseThrow(UnknownGmailConnectionException::new);
         String accessToken = gmail.refreshAccessToken(cipher.decrypt(connection.refreshTokenCiphertext())).value();
         String trackLabelId = gmail.trackLabelId(accessToken);
         try {

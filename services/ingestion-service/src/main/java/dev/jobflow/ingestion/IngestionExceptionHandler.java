@@ -7,15 +7,11 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 class IngestionExceptionHandler {
-    @ExceptionHandler(IllegalArgumentException.class)
-    ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException error) {
-        HttpStatus status = isNotFound(error.getMessage()) ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
-        return ResponseEntity.status(status).body(new ApiError(error.getMessage()));
+    @ExceptionHandler(UnknownGmailConnectionException.class)
+    ResponseEntity<ApiError> handleUnknownGmailConnection() {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError("GMAIL_CONNECTION_NOT_FOUND", "Gmail connection not found"));
     }
 
-    private static boolean isNotFound(String message) {
-        return "Gmail connection not found".equals(message) || "Gmail message not found".equals(message);
-    }
-
-    record ApiError(String message) {}
+    record ApiError(String code, String message) {}
 }
