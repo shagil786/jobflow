@@ -88,8 +88,8 @@ class GmailEvidenceServiceTest {
                 new IdentityCandidateExtractor());
 
         assertThatThrownBy(() -> service.prepare(connectionId, "missing-message"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessage("Gmail message not found");
+                .isInstanceOf(UnknownGmailConnectionException.class)
+                .hasMessage("Gmail connection not found");
         assertThat(gmail.bodyFetchCount).isZero();
     }
 

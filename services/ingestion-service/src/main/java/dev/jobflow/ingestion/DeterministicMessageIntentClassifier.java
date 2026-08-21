@@ -11,7 +11,9 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.stereotype.Component;
 
+@Component
 public class DeterministicMessageIntentClassifier implements MessageIntentClassifier {
     static final String CLASSIFIER_VERSION = "rules-2026-08-21-v1";
 

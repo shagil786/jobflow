@@ -1,35 +1,39 @@
-# Suggestion Persistence Task Report
+# Classification Orchestration Task Report
 
 Date: 2026-08-21
-Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/suggestion-persistence`
+Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/classification-orchestration`
 
 ## Scope Completed
 
-- Added immutable `ClassificationSuggestionV1` persistence for tenant/user/connection/message scoped Gmail suggestions.
-- Added tenant-safe repository/store/service boundary with idempotent `saveIfAbsent` and scoped latest lookup.
-- Added Flyway `V9__create_classification_suggestions.sql` and follow-up `V10__order_classification_suggestions_by_row_id.sql`.
-- Derived persisted `suggestion_id` from tenant, user, connection, message, classifier-version, and content-hash scope while retaining same-scope idempotency.
-- Changed latest lookup to use database identity `row_id` insertion order; `created_at` remains informational.
-- Added atomic concurrent-save recovery: the insert/flush runs in a separate transaction, identity constraint races roll back, then reload the exact scoped row; unrelated integrity violations propagate.
-- Kept duplicate recovery isolated from caller transactions: the failed write rolls back in its own context and the winner reloads in a fresh read-only transaction without clearing caller-managed entities; the service write boundary no longer adds an outer transaction.
-- Sanitized persisted evidence by dropping `quotedText` before rows are written.
-- Added focused store/service/migration tests for idempotency, changed-content/versioned inserts, cross-owner same-message persistence, insertion-order latest lookup despite out-of-order timestamps, owner mismatch rejection, tenant-scoped lookup, additive migration behavior, and caller-context-safe duplicate recovery.
+- Added `GmailClassificationService` as the tenant-safe orchestration boundary for `classify(UUID connectionId, String messageId)`.
+- Composed the existing `GmailEvidenceService`, `DeterministicMessageIntentClassifier`, and `ClassificationSuggestionService` without introducing controllers, UI, AI providers, review acceptance, next-action logic, application mutation, or email sending.
+- Extended `GmailEvidenceService` with a `PreparedMessage` result so the classifier receives the already-validated sanitized Gmail message plus prepared evidence without duplicating fetch or ownership checks.
+- Tightened missing-message behavior to the existing sanitized not-found boundary by returning `UnknownGmailConnectionException` before any body fetch.
+- Registered `DeterministicMessageIntentClassifier` as a Spring bean for production wiring.
+
+## Tests Added
+
+- `GmailClassificationServiceTest`
+  - successful evidence -> classification -> persistence flow
+  - replay/idempotency returns the same persisted suggestion
+  - unknown message rejects without fetch or persistence
+  - fetch failure leaves no suggestion row
+  - wrong-owner message is rejected through the sanitized boundary
+  - classifier conflict remains `UNKNOWN` and `requiresReview=true`
+- Updated `GmailEvidenceServiceTest` to assert the sanitized not-found behavior for missing messages
 
 ## Verification
 
-1. Focused persistence and migration tests
+1. Focused red/green verification
 
    Command:
    ```bash
-   mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=ClassificationSuggestionTransactionalContextTest,ClassificationSuggestionStoreTest,ClassificationSuggestionServiceTest,FlywayMigrationTest test
+   mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailClassificationServiceTest,GmailEvidenceServiceTest test
    ```
 
    Result: passed
-   - `ClassificationSuggestionStoreTest`: 6 tests, 0 failures, 0 errors
-   - `ClassificationSuggestionTransactionalContextTest`: 1 test, 0 failures, 0 errors
-   - `ClassificationSuggestionServiceTest`: 1 test, 0 failures, 0 errors
-   - `FlywayMigrationTest`: 4 tests, 0 failures, 0 errors
-   - Total: 12 tests, 0 failures, 0 errors, 0 skipped
+   - `GmailClassificationServiceTest`: 6 tests, 0 failures, 0 errors
+   - `GmailEvidenceServiceTest`: 3 tests, 0 failures, 0 errors
 
 2. Full ingestion Maven suite
 
@@ -39,20 +43,10 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/suggestion-pe
    ```
 
    Result: passed
-   - Total from Surefire reports: 69 tests, 0 failures, 0 errors, 0 skipped
-
-3. Explicit classifier verification
-
-   Command:
-   ```bash
-   mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=DeterministicMessageIntentClassifierTest test
-   ```
-
-   Result: passed
-   - `DeterministicMessageIntentClassifierTest`: 5 tests, 0 failures, 0 errors, 0 skipped
+   - All ingestion-service Surefire reports passed with 0 failures and 0 errors
 
 ## Notes
 
-- The red TDD phase first failed on missing `ClassificationSuggestionStore`/repository/service types, then on a JPA/Flyway column-type mismatch caused by `@Lob`; the final mapping removes `@Lob` so Hibernate validates the Flyway `text` columns cleanly.
-- The concurrency red phase reproduced a uniqueness exception from two simultaneous same-scope saves; the green implementation uses isolated `REQUIRES_NEW` write and read-only recovery transactions with `saveAndFlush` and an exact scoped-key reload, without touching caller-managed JPA state.
-- Test output still shows existing non-failing warnings about Flyway’s tested H2 version range and Mockito self-attachment on the current JDK.
+- The new orchestration service relies on the existing suggestion store for replay-safe idempotency, so repeated classifications for the same connection/message/content/classifier scope return the same persisted record instead of creating duplicates.
+- The service continues to avoid raw-body persistence because sanitization still happens in the existing suggestion store before database writes.
+- Test output still includes the existing non-failing Flyway H2-version warning and Mockito self-attachment warning on this JDK.

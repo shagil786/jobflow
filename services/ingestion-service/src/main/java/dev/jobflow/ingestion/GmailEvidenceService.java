@@ -30,10 +30,14 @@ public class GmailEvidenceService {
     }
 
     public PreparedEvidence prepare(UUID connectionId, String messageId) {
+        return prepareMessage(connectionId, messageId).evidence();
+    }
+
+    public PreparedMessage prepareMessage(UUID connectionId, String messageId) {
         StoredGmailConnection connection = connections.find(connectionId)
                 .orElseThrow(UnknownGmailConnectionException::new);
         GmailMessageMetadata metadata = messages.findByProviderIdentity(connection.tenantId(), connection.userId(), connectionId, messageId)
-                .orElseThrow(() -> new IllegalArgumentException("Gmail message not found"));
+                .orElseThrow(UnknownGmailConnectionException::new);
 
         String accessToken = gmail.refreshAccessToken(cipher.decrypt(connection.refreshTokenCiphertext())).value();
         SafeGmailMessage fetchedBody = gmail.fetchMessageBodyForProcessing(accessToken, messageId);
@@ -55,7 +59,7 @@ public class GmailEvidenceService {
                 normalized.contentHash());
 
         IdentityCandidateExtractor.ExtractionResult extracted = extractor.extract(message);
-        return new PreparedEvidence(
+        PreparedEvidence evidence = new PreparedEvidence(
                 connection.tenantId(),
                 connection.userId(),
                 connectionId,
@@ -70,6 +74,7 @@ public class GmailEvidenceService {
                 extracted.contact(),
                 extracted.allEvidence(),
                 missingFields(extracted));
+        return new PreparedMessage(message, evidence);
     }
 
     private static List<String> csvValues(String value) {
@@ -123,4 +128,6 @@ public class GmailEvidenceService {
             missingFields = missingFields == null ? List.of() : List.copyOf(missingFields);
         }
     }
+
+    public record PreparedMessage(SafeGmailMessage message, PreparedEvidence evidence) {}
 }
