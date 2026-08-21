@@ -9,6 +9,8 @@ public interface GmailApiClient {
     String currentHistoryId(String accessToken);
     MessagePage listMessages(String accessToken, String query, String pageToken);
     HistoryPage listHistory(String accessToken, String startHistoryId, String labelId, String pageToken);
+    SafeGmailMessage fetchMessageMetadata(String accessToken, String messageId);
+    SafeGmailMessage fetchMessageBodyForProcessing(String accessToken, String messageId);
 
     record AccessToken(String value, Instant expiresAt) {}
     record MessageRef(String messageId, String threadId) {}
