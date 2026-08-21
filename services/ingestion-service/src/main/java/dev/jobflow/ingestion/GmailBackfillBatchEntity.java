@@ -41,6 +41,7 @@ class GmailBackfillBatchEntity {
     java.time.Instant getWindowFrom() { return windowFrom; } java.time.Instant getWindowTo() { return windowTo; }
     void markRunning(Instant now) { status = BackfillBatchStatus.RUNNING; attemptCount++; updatedAt = now; }
     void markCompleted(Instant now) { status = BackfillBatchStatus.COMPLETED; updatedAt = now; }
+    void markRetryable(String code, Instant now) { status = BackfillBatchStatus.QUEUED; lastErrorCode = code; updatedAt = now; }
     void markFailed(String code, Instant now) { status = BackfillBatchStatus.FAILED; lastErrorCode = code; updatedAt = now; }
     void markDeadLettered(String code, Instant now) { status = BackfillBatchStatus.DEAD_LETTERED; lastErrorCode = code; updatedAt = now; }
     int getSequenceNo() { return sequenceNo; }

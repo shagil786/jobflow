@@ -38,7 +38,7 @@ class SqsBackfillWorkerConfiguration {
         private GmailBackfillBatchEntity find(BackfillQueue.BatchPayload p) { return batches.findById(p.batchId()).orElseThrow(() -> new IllegalArgumentException("GMAIL_BACKFILL_BATCH_NOT_FOUND")); }
         public void claim(BackfillQueue.BatchPayload p) { var b = find(p); b.markRunning(Instant.now(clock)); batches.save(b); }
         public void succeeded(BackfillQueue.BatchPayload p) { var b = find(p); b.markCompleted(Instant.now(clock)); batches.save(b); }
-        public void retryableFailure(BackfillQueue.BatchPayload p, String code) { var b = find(p); b.markFailed(code, Instant.now(clock)); batches.save(b); }
+        public void retryableFailure(BackfillQueue.BatchPayload p, String code) { var b = find(p); b.markRetryable(code, Instant.now(clock)); batches.save(b); }
         public void failed(BackfillQueue.BatchPayload p, String code) { var b = find(p); b.markFailed(code, Instant.now(clock)); batches.save(b); }
         public void deadLettered(BackfillQueue.BatchPayload p, String code) { var b = find(p); b.markDeadLettered(code, Instant.now(clock)); batches.save(b); }
     }
