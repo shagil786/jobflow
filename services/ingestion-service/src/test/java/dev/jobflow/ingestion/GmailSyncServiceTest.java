@@ -67,8 +67,15 @@ class GmailSyncServiceTest {
 
     private static final class InMemoryMessages implements GmailMessageStore {
         private final Map<String, GmailMessageMetadata> values = new HashMap<>();
-        @Override public boolean saveIfAbsent(GmailMessageMetadata message) { return values.putIfAbsent(message.messageId(), message) == null; }
+        @Override public boolean saveIfAbsent(GmailMessageMetadata message) { return values.putIfAbsent(key(message.connectionId(), message.messageId()), message) == null; }
+        @Override public Optional<GmailMessageMetadata> findByProviderIdentity(String tenantId, String userId, UUID connectionId, String messageId) {
+            GmailMessageMetadata message = values.get(key(connectionId, messageId));
+            if (message == null) return Optional.empty();
+            if (!message.tenantId().equals(tenantId) || !message.userId().equals(userId)) return Optional.empty();
+            return Optional.of(message);
+        }
         @Override public long countForConnection(UUID connectionId) { return values.values().stream().filter(m -> m.connectionId().equals(connectionId)).count(); }
+        private String key(UUID connectionId, String messageId) { return connectionId + "::" + messageId; }
     }
 
     private static final class FakeGmail implements GmailApiClient {

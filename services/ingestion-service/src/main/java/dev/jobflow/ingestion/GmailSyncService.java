@@ -22,19 +22,19 @@ public class GmailSyncService {
         String trackLabelId = gmail.trackLabelId(accessToken);
         try {
             GmailApiClient.HistoryPage history = gmail.listHistory(accessToken, connection.lastHistoryId(), trackLabelId, null);
-            int imported = persist(connectionId, history.addedMessages());
+            int imported = persist(connection, history.addedMessages());
             while (history.nextPageToken() != null) {
                 history = gmail.listHistory(accessToken, connection.lastHistoryId(), trackLabelId, history.nextPageToken());
-                imported += persist(connectionId, history.addedMessages());
+                imported += persist(connection, history.addedMessages());
             }
             connections.save(connection.withCursor(new SyncCursor(history.historyId(), null)));
             return new GmailSyncResult(connectionId, imported, false, history.historyId(), messages.countForConnection(connectionId));
         } catch (GmailHistoryExpiredException expired) {
             GmailApiClient.MessagePage page = gmail.listMessages(accessToken, GmailSyncScope.queryForLabel(GmailSyncScope.TRACK_LABEL), null);
-            int imported = persist(connectionId, page.messages());
+            int imported = persist(connection, page.messages());
             while (page.nextPageToken() != null) {
                 page = gmail.listMessages(accessToken, GmailSyncScope.queryForLabel(GmailSyncScope.TRACK_LABEL), page.nextPageToken());
-                imported += persist(connectionId, page.messages());
+                imported += persist(connection, page.messages());
             }
             String historyId = gmail.currentHistoryId(accessToken);
             connections.save(connection.withCursor(new SyncCursor(historyId, null)));
@@ -42,9 +42,25 @@ public class GmailSyncService {
         }
     }
 
-    private int persist(UUID connectionId, java.util.List<GmailApiClient.MessageRef> refs) {
+    private int persist(StoredGmailConnection connection, java.util.List<GmailApiClient.MessageRef> refs) {
         int imported = 0;
-        for (GmailApiClient.MessageRef ref : refs) if (ref.messageId() != null && messages.saveIfAbsent(new GmailMessageMetadata(connectionId, ref.messageId(), ref.threadId(), null, GmailSyncScope.TRACK_LABEL))) imported++;
+        for (GmailApiClient.MessageRef ref : refs) {
+            if (ref.messageId() != null && messages.saveIfAbsent(new GmailMessageMetadata(
+                    connection.connectionId(),
+                    connection.tenantId(),
+                    connection.userId(),
+                    ref.messageId(),
+                    ref.threadId(),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    GmailSyncScope.TRACK_LABEL,
+                    null))) {
+                imported++;
+            }
+        }
         return imported;
     }
 
