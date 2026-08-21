@@ -47,6 +47,13 @@ public class JobController {
     return ApplicationResponse.from(service.update(tenantId(principal), userId(principal), id, request));
   }
 
+  @PostMapping("/from-reviewed-message")
+  @ResponseStatus(HttpStatus.CREATED)
+  public ApplicationResponse importReviewedMessage(@AuthenticationPrincipal Jwt principal, @Valid @RequestBody JobService.ReviewedMessageRequest request) {
+    if (request.mode() == null || request.reviewId() == null || request.messageId() == null || request.messageId().isBlank()) throw new JobService.InvalidRequestException("mode, reviewId, and messageId are required");
+    return ApplicationResponse.from(service.importReviewedMessage(tenantId(principal), userId(principal), request));
+  }
+
   @GetMapping("/{id}/timeline")
   public List<TimelineResponse> timeline(@AuthenticationPrincipal Jwt principal, @PathVariable("id") UUID id) {
     return service.timeline(tenantId(principal), userId(principal), id).stream().map(event -> new TimelineResponse(event.getId(), event.getType(), event.getSummary(), event.getOccurredAt())).toList();
