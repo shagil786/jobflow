@@ -37,12 +37,12 @@ public class EmailNormalizer {
 
         Matcher quotedMatcher = QUOTED_BOUNDARY.matcher(visibleText);
         if (!quotedMatcher.find()) {
-            return new NormalizedEmail(visibleText, "", sha256(visibleText));
+            return new NormalizedEmail(visibleText, "", null);
         }
 
         String plainText = visibleText.substring(0, quotedMatcher.start()).trim();
         String quotedText = stripQuotedPrefixes(visibleText.substring(quotedMatcher.start()).trim());
-        return new NormalizedEmail(plainText, quotedText, sha256(plainText));
+        return new NormalizedEmail(plainText, quotedText, null);
     }
 
     static String sha256(String value) {
@@ -98,7 +98,21 @@ public class EmailNormalizer {
         public NormalizedEmail {
             plainText = plainText == null ? "" : plainText;
             quotedText = quotedText == null ? "" : quotedText;
-            contentHash = contentHash == null ? sha256(plainText) : contentHash;
+            contentHash = contentHash == null ? sha256(extractionText(plainText, quotedText)) : contentHash;
+        }
+
+        public String extractionText() {
+            return extractionText(plainText, quotedText);
+        }
+
+        private static String extractionText(String plainText, String quotedText) {
+            if (plainText.isBlank()) {
+                return quotedText;
+            }
+            if (quotedText.isBlank()) {
+                return plainText;
+            }
+            return plainText + "\n---------- Quoted content ---------\n" + quotedText;
         }
     }
 }

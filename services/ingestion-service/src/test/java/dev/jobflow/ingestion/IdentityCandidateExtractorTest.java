@@ -104,14 +104,53 @@ class IdentityCandidateExtractorTest {
                 .anyMatch(text -> text.contains("application submitted on March 4"));
     }
 
+    @Test
+    void subjectCompanyCandidateUsesSubjectProvenance() {
+        IdentityCandidateExtractor.ExtractionResult result = extractor.extract(message(
+                "Recruiter <recruiter@agency.com>",
+                null,
+                "Thanks for applying.",
+                "Application with Acme - next steps",
+                Instant.parse("2026-08-21T10:00:00Z")));
+
+        assertThat(result.company().value()).isEqualTo("Acme");
+        assertThat(result.company().source()).isEqualTo("subject");
+        assertThat(result.company().evidence()).singleElement()
+                .extracting(IdentityCandidateExtractor.EvidenceSpan::source)
+                .isEqualTo("subject");
+    }
+
+    @Test
+    void quotedOnlyEvidenceUsesTheHashOfTheTextThatWasExtracted() {
+        String quotedText = "---------- Forwarded message ---------\nFrom: ATS <jobs@acme.com>\nApplication with Acme";
+
+        IdentityCandidateExtractor.ExtractionResult result = extractor.extract(message(
+                "Recruiter <recruiter@agency.com>",
+                null,
+                quotedText,
+                "Application update",
+                Instant.parse("2026-08-21T10:00:00Z")));
+
+        assertThat(result.company().value()).isEqualTo("Acme");
+        assertThat(result.company().evidence()).allSatisfy(span ->
+                assertThat(span.normalizedTextHash()).isEqualTo(EmailNormalizer.sha256(quotedText)));
+        assertThat(EmailNormalizer.sha256(quotedText))
+                .isNotEqualTo(EmailNormalizer.sha256("---------- Forwarded message ---------\nFrom: ATS <jobs@acme.com>\nApplication with Beta"));
+    }
+
     private static SafeGmailMessage message(String sender, String replyTo, String normalizedContent, Instant receivedAt) {
+        return message(sender, replyTo, normalizedContent, "Application update", receivedAt);
+    }
+
+    private static SafeGmailMessage message(
+            String sender, String replyTo, String normalizedContent, String subject, Instant receivedAt) {
         return new SafeGmailMessage(
                 "message-1",
                 "thread-1",
                 sender,
                 replyTo,
                 List.of("candidate@example.com"),
-                "Application update",
+                subject,
                 receivedAt,
                 List.of("Label_JobFlowTrack"),
                 normalizedContent,

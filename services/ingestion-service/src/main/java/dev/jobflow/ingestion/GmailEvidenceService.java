@@ -40,12 +40,7 @@ public class GmailEvidenceService {
         EmailNormalizer.NormalizedEmail normalized = normalizer.normalize(
                 fetchedBody == null ? null : fetchedBody.normalizedContent());
 
-        String extractionText = normalized.plainText();
-        if (!normalized.quotedText().isBlank()) {
-            extractionText = extractionText.isBlank()
-                    ? normalized.quotedText()
-                    : extractionText + "\n---------- Quoted content ---------\n" + normalized.quotedText();
-        }
+        String extractionText = normalized.extractionText();
 
         SafeGmailMessage message = new SafeGmailMessage(
                 metadata.messageId(),

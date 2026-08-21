@@ -60,7 +60,10 @@ class GmailEvidenceServiceTest {
         assertThat(gmail.bodyFetchCount).isEqualTo(1);
         assertThat(prepared.intent()).isEqualTo("UNKNOWN");
         assertThat(prepared.requiresReview()).isTrue();
-        assertThat(prepared.contentHash()).isEqualTo(EmailNormalizer.sha256("Your application submitted on March 4 has been received."));
+        assertThat(prepared.contentHash()).isEqualTo(EmailNormalizer.sha256(
+                "Your application submitted on March 4 has been received.\n"
+                        + "---------- Quoted content ---------\n"
+                        + "On Tue, March 5, 2026 at 11:00 AM Recruiter wrote:\nOlder reply"));
         assertThat(prepared.applicationDate().value()).isEqualTo("March 4");
         assertThat(prepared.evidence()).isNotEmpty();
         assertThat(prepared.evidence()).allSatisfy(span -> {
@@ -88,6 +91,35 @@ class GmailEvidenceServiceTest {
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Gmail message not found");
         assertThat(gmail.bodyFetchCount).isZero();
+    }
+
+    @Test
+    void prepareHashesQuotedOnlyExtractionTextAndEvidenceWithTheSameHash() {
+        UUID connectionId = UUID.randomUUID();
+        InMemoryConnections connections = connected(connectionId, "history-10");
+        InMemoryMessages messages = new InMemoryMessages();
+        FakeGmail gmail = new FakeGmail();
+        GmailMessageMetadata metadata = new GmailMessageMetadata(
+                connectionId, "tenant", "user", "message-quoted", "thread-1",
+                "Recruiter <recruiter@agency.com>", null, "candidate@example.com", "Application update",
+                Instant.parse("2026-08-21T10:00:00Z"), "Label_JobFlowTrack", null);
+        messages.values.put(connectionId + "::message-quoted", metadata);
+        String quotedOnly = "---------- Forwarded message ---------\nFrom: ATS <jobs@acme.com>\nApplication with Acme";
+        gmail.bodyByMessageId.put("message-quoted", new SafeGmailMessage(
+                "message-quoted", "thread-1", null, null, List.of(), null, null,
+                List.of("Label_JobFlowTrack"), quotedOnly, null));
+
+        GmailEvidenceService.PreparedEvidence prepared = new GmailEvidenceService(
+                        connections, new Cipher(), gmail, messages, new EmailNormalizer(), new IdentityCandidateExtractor())
+                .prepare(connectionId, "message-quoted");
+
+        String expectedExtractionText = new EmailNormalizer().normalize(quotedOnly).extractionText();
+        String expectedHash = EmailNormalizer.sha256(expectedExtractionText);
+        assertThat(prepared.contentHash()).isEqualTo(expectedHash);
+        assertThat(prepared.company().evidence()).allSatisfy(span ->
+                assertThat(span.normalizedTextHash()).isEqualTo(expectedHash));
+        assertThat(expectedHash).isNotEqualTo(EmailNormalizer.sha256(
+                new EmailNormalizer().normalize(quotedOnly.replace("Acme", "Beta")).extractionText()));
     }
 
     private static InMemoryConnections connected(UUID id, String historyId) {

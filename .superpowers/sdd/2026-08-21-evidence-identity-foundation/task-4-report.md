@@ -32,17 +32,24 @@ Red:
 Green:
 
 - Re-ran `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=EmailNormalizerTest,IdentityCandidateExtractorTest,GmailEvidenceServiceTest test`
-- Result: pass, `12` tests green across the three new Task 4 suites.
+- Result: pass, `15` tests green across the three Task 4 suites after the fix round.
+
+Fix round 1 regression coverage:
+
+- Added quoted-only hash identity coverage, including distinct-text hash inequality.
+- Added subject-company provenance coverage requiring candidate and evidence source to both be `subject`.
+- The canonical normalized extraction text is now hashed consistently for plain, mixed, and quoted-only content.
+- The initial regression run failed with the expected three findings; the focused rerun passed.
 
 Full ingestion suite:
 
 - Ran `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test`
-- Result: pass, `33` tests green across `10` suites:
+- Result: pass, `36` tests green across `10` suites:
   - `GmailConnectionServiceTest`: 2
   - `EmailNormalizerTest`: 4
   - `GmailMessageStoreTest`: 4
-  - `GmailEvidenceServiceTest`: 2
-  - `IdentityCandidateExtractorTest`: 6
+  - `GmailEvidenceServiceTest`: 3
+  - `IdentityCandidateExtractorTest`: 8
   - `GmailSyncServiceTest`: 3
   - `GmailThreadStoreTest`: 2
   - `FlywayMigrationTest`: 2

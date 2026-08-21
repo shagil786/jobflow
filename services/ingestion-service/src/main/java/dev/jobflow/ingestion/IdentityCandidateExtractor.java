@@ -192,7 +192,7 @@ public class IdentityCandidateExtractor {
                 company,
                 quoted ? 0.45 : 0.68,
                 evidence,
-                "body",
+                evidenceSource,
                 true,
                 false));
     }
