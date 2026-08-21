@@ -5,7 +5,7 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/evidence-iden
 
 ## Summary
 
-Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gmail connection uniqueness with normalized `(tenant_id, user_id, email)` identity, and V7 adds a persisted active-mailbox marker. Connect transactionally activates the newly connected mailbox, status reads that marker, and equal `connectedAt` values cannot make status select an arbitrary row. All Gmail calls used by sync map upstream, auth, network, malformed-response, and fetch failures to typed safe errors.
+Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gmail connection uniqueness with normalized `(tenant_id, user_id, email)` identity, V7 adds a persisted active-mailbox marker, and V8 adds a database-backed owner lock. Connect transactionally acquires that lock before switching the active mailbox, including when the owner has no prior connection row; status reads the persisted marker, and equal `connectedAt` values cannot make status select an arbitrary row. All Gmail calls used by sync map upstream, auth, network, malformed-response, and fetch failures to typed safe errors.
 
 ## Verification Results
 
@@ -15,9 +15,9 @@ Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gma
   - Unknown connections on the internal sync and cursor routes are covered by `GmailConnectionControllerTest` and return `404` with `{"code":"GMAIL_CONNECTION_NOT_FOUND","message":"Gmail connection not found"}`; neither response includes owner/tenant data.
   - Cross-tenant message lookup remains non-returning and is already covered by `GmailMessageStoreTest`.
   - Same-mailbox reconnect identity reuse and different-mailbox identity separation are covered by `GmailConnectionServiceTest`.
-  - `GmailConnectionPersistenceTest` applies all seven Flyway migrations and persists two same-owner mailboxes with distinct IDs while preserving same-mailbox idempotency.
+  - `GmailConnectionPersistenceTest` applies all eight Flyway migrations and persists two same-owner mailboxes with distinct IDs while preserving same-mailbox idempotency.
   - `GmailConnectionServiceTest` proves equal timestamps select the newly connected mailbox deterministically; reconnecting another mailbox makes that mailbox active.
-  - `GmailConnectionPersistenceTest` applies the legacy schema through V7, verifies the owner-only index is gone, verifies the normalized mailbox index exists, allows the same normalized email for different owners, and rejects a duplicate same-owner/mailbox row at the database boundary.
+  - `GmailConnectionPersistenceTest` applies the legacy schema through V7, verifies the owner-only index is gone, verifies the normalized mailbox index exists, allows the same normalized email for different owners, rejects a duplicate same-owner/mailbox row at the database boundary, and proves concurrent same-owner connects leave exactly one active row.
   - First-insert owner mismatches are covered by `GmailMessageStoreTest` and `GmailThreadStoreTest`; both reject before persistence.
 
 - Controlled errors:
@@ -34,23 +34,23 @@ Task 5 final hardening fixes are complete. Flyway V6 replaces the owner-only Gma
 ## Checks Run
 
 - Backend:
-  - `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailConnectionPersistenceTest,GmailConnectionServiceTest test` — passed.
+  - `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=FlywayMigrationTest,GmailConnectionPersistenceTest,GmailConnectionServiceTest test` — passed.
   - `mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 -Dtest=GmailConnectionPersistenceTest,GmailConnectionServiceTest,RestGmailApiClientTest,GmailConnectionControllerTest test` — passed.
   - `cd services/ingestion-service && mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test` — passed.
 
 - Web:
   - `cd web && npm test -- --run && npm run typecheck` — passed: 13 test files, 28 tests, and typecheck passed.
 
-All required final hardening checks passed on 2026-08-21.
+All required final hardening checks passed on 2026-08-21. The backend suite applied V8 successfully, and the web suite passed 13 test files/28 tests plus typecheck.
 
 ## Operational Smoke Checks
 
-- `curl http://localhost:8082/actuator/health`
-- `curl -X POST -H 'X-Internal-Service-Key: wrong' http://localhost:8082/internal/v1/gmail/connections/00000000-0000-0000-0000-000000000000/sync`
+- `curl --max-time 2 -sS -o /tmp/jobflow-task5-final-health.out -w '%{http_code}' http://localhost:8082/actuator/health`
+- `curl --max-time 2 -sS -o /tmp/jobflow-task5-final-auth.out -w '%{http_code}' -X POST -H 'X-Internal-Service-Key: wrong' http://localhost:8082/internal/v1/gmail/connections/00000000-0000-0000-0000-000000000000/sync`
 
 These could not complete because no local service was listening on `localhost:8082` at verification time:
 
-- health probe result: `curl: (7) Failed to connect to localhost port 8082`
-- invalid-key probe result: `curl: (7) Failed to connect to localhost port 8082`
+- health probe result: `curl: (7) Failed to connect to localhost port 8082`, HTTP status `000`
+- invalid-key probe result: `curl: (7) Failed to connect to localhost port 8082`, HTTP status `000`
 
 No OAuth or Gmail state was changed during Task 5.

@@ -1,6 +1,7 @@
 package dev.jobflow.ingestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -61,6 +62,37 @@ class FlywayMigrationTest {
                 }
                 assertThat(ownerColumnCount).isEqualTo(2);
             }
+        }
+    }
+
+    @Test
+    void upgradesV6MailboxRowsThroughV7WithDeterministicActiveOwnership() throws Exception {
+        String url = "jdbc:h2:mem:flyway-v6-to-v7;MODE=PostgreSQL;DB_CLOSE_DELAY=-1";
+        try (Connection connection = DriverManager.getConnection(url, "sa", ""); Statement statement = connection.createStatement()) {
+            Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").target("5").load().migrate();
+            statement.executeUpdate("insert into gmail_connections (connection_id,user_id,tenant_id,email,refresh_token_ciphertext,last_history_id,connected_at) values ('11111111-1111-1111-1111-111111111111','legacy-user','legacy-tenant','LEGACY@EXAMPLE.COM','encrypted:legacy-1','history-1',TIMESTAMP WITH TIME ZONE '2026-08-21 12:00:00+00:00')");
+
+            Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").target("6").load().migrate();
+            statement.executeUpdate("insert into gmail_connections (connection_id,user_id,tenant_id,email,refresh_token_ciphertext,last_history_id,connected_at) values ('22222222-2222-2222-2222-222222222222','legacy-user','legacy-tenant','second@example.com','encrypted:legacy-2','history-2',TIMESTAMP WITH TIME ZONE '2026-08-21 12:00:00+00:00')");
+
+            Flyway.configure().dataSource(url, "sa", "").locations("classpath:db/migration").target("7").load().migrate();
+
+            assertThat(count(statement, "select count(*) from gmail_connections where tenant_id='legacy-tenant' and user_id='legacy-user'")).isEqualTo(2);
+            assertThat(count(statement, "select count(*) from gmail_connections where tenant_id='legacy-tenant' and user_id='legacy-user' and active=true")).isEqualTo(1);
+            assertThat(count(statement, "select count(*) from information_schema.indexes where table_name='GMAIL_CONNECTIONS' and index_name='UX_GMAIL_CONNECTION_OWNER'")).isZero();
+            assertThat(count(statement, "select count(*) from information_schema.indexes where table_name='GMAIL_CONNECTIONS' and index_name='UX_GMAIL_CONNECTION_MAILBOX'")).isEqualTo(1);
+            assertThat(count(statement, "select count(*) from gmail_connections where email='legacy@example.com'")).isEqualTo(1);
+
+            statement.executeUpdate("insert into gmail_connections (connection_id,user_id,tenant_id,email,refresh_token_ciphertext,last_history_id,connected_at,active) values ('33333333-3333-3333-3333-333333333333','other-user','other-tenant','legacy@example.com','encrypted:other','history-3',CURRENT_TIMESTAMP,false)");
+            assertThatThrownBy(() -> statement.executeUpdate("insert into gmail_connections (connection_id,user_id,tenant_id,email,refresh_token_ciphertext,last_history_id,connected_at,active) values ('44444444-4444-4444-4444-444444444444','legacy-user','legacy-tenant','legacy@example.com','encrypted:duplicate','history-4',CURRENT_TIMESTAMP,false)"))
+                    .isInstanceOf(Exception.class);
+        }
+    }
+
+    private static int count(Statement statement, String sql) throws Exception {
+        try (ResultSet result = statement.executeQuery(sql)) {
+            result.next();
+            return result.getInt(1);
         }
     }
 }

@@ -7,5 +7,5 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class GmailConnectionConfiguration {
     @Bean Clock ingestionClock() { return Clock.systemUTC(); }
-    @Bean GmailConnectionService gmailConnectionService(GmailConnectionStore store, GmailTokenCipher cipher, Clock clock) { return new GmailConnectionService(store, cipher, clock); }
+    @Bean GmailConnectionService gmailConnectionService(GmailConnectionStore store, GmailTokenCipher cipher, Clock clock, GmailConnectionOwnerLock ownerLock) { return new GmailConnectionService(store, cipher, clock, ownerLock); }
 }

@@ -10,17 +10,26 @@ public class GmailConnectionService {
     private final GmailConnectionStore store;
     private final GmailTokenCipher cipher;
     private final Clock clock;
+    private final GmailConnectionOwnerLock ownerLock;
 
     public GmailConnectionService(GmailConnectionStore store, GmailTokenCipher cipher, Clock clock) {
+        this(store, cipher, clock, null);
+    }
+
+    public GmailConnectionService(GmailConnectionStore store, GmailTokenCipher cipher, Clock clock, GmailConnectionOwnerLock ownerLock) {
         this.store = store;
         this.cipher = cipher;
         this.clock = clock;
+        this.ownerLock = ownerLock;
     }
 
     @Transactional
     public GmailConnectionRecord connect(GmailConnectionCommand command) {
         require(command.userId(), "userId"); require(command.tenantId(), "tenantId");
         require(command.email(), "email"); require(command.refreshToken(), "refreshToken"); require(command.historyId(), "historyId");
+        if (ownerLock != null) {
+            ownerLock.acquire(command.tenantId(), command.userId());
+        }
         String email = normalizeEmail(command.email());
         StoredGmailConnection existing = store.findByOwnerAndEmail(command.tenantId(), command.userId(), email).orElse(null);
         UUID id = existing == null ? UUID.randomUUID() : existing.connectionId();
