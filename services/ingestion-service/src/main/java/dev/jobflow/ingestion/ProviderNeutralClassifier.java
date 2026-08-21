@@ -6,10 +6,12 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Component;
 
 /** Selects a configured provider without exposing provider-specific types to the pipeline. */
 @Component
+@Primary
 public class ProviderNeutralClassifier implements MessageIntentClassifier {
     private final Map<String, ClassifierProvider> providers;
     private final String configuredProvider;

@@ -9,5 +9,6 @@ dist/
 !.env.example
 target/
 data/
+infra/localstack/.localstack/
 coverage/
 .worktrees/
