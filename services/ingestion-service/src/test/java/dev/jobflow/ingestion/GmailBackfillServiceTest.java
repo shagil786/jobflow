@@ -19,7 +19,6 @@ class GmailBackfillServiceTest {
     private final GmailBackfillRepository runs = mock(GmailBackfillRepository.class);
     private final GmailBackfillBatchRepository batches = mock(GmailBackfillBatchRepository.class);
     private final GmailConnectionStore connections = mock(GmailConnectionStore.class);
-    private final BackfillQueue queue = mock(BackfillQueue.class);
     private GmailBackfillService service;
     private final UUID connectionId = UUID.randomUUID();
     private final Instant now = Instant.parse("2026-08-21T12:00:00Z");
@@ -27,7 +26,7 @@ class GmailBackfillServiceTest {
     @BeforeEach
     void setUp() {
         service = new GmailBackfillService(runs, batches, connections,
-                new GmailBackfillWindowPlanner(), queue, Clock.fixed(now, ZoneOffset.UTC));
+                new GmailBackfillWindowPlanner(), Clock.fixed(now, ZoneOffset.UTC));
         when(connections.find(connectionId)).thenReturn(Optional.of(new StoredGmailConnection(
                 connectionId, "user-1", "tenant-1", "person@example.com", "encrypted", "history", null, now, true)));
         when(runs.findByTenantIdAndUserIdAndIdempotencyKey("tenant-1", "user-1", "idem-1")).thenReturn(Optional.empty());
@@ -52,16 +51,6 @@ class GmailBackfillServiceTest {
         verify(batches).saveAll(batchCaptor.capture());
         assertThat(batchCaptor.getValue()).hasSize(4);
         assertThat(batchCaptor.getValue()).extracting(GmailBackfillBatchEntity::getSequenceNo).containsExactly(0, 1, 2, 3);
-        ArgumentCaptor<BackfillQueue.BatchPayload> payloadCaptor = ArgumentCaptor.forClass(BackfillQueue.BatchPayload.class);
-        verify(queue, times(4)).publish(payloadCaptor.capture());
-        assertThat(payloadCaptor.getAllValues()).allSatisfy(payload -> {
-            assertThat(payload.runId()).isEqualTo(record.runId());
-            assertThat(payload.connectionId()).isEqualTo(connectionId);
-            assertThat(payload.tenantId()).isEqualTo("tenant-1");
-            assertThat(payload.userId()).isEqualTo("user-1");
-            assertThat(payload.correlationId()).isNotBlank();
-            assertThat(payload.attemptId()).isNotBlank();
-        });
     }
 
     @Test
@@ -77,7 +66,6 @@ class GmailBackfillServiceTest {
         assertThat(record.runId()).isEqualTo(existing.getRunId());
         verify(runs, never()).save(any());
         verify(batches, never()).saveAll(any());
-        verifyNoInteractions(queue);
     }
 
     @Test

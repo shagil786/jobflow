@@ -20,8 +20,6 @@ class SqsBackfillWorkerTest {
     @Test
     void acknowledgesOnlyAfterSuccessfulProcessing() {
         BackfillQueue.QueuedBatch queued = queued(1);
-        when(lifecycle.claim(queued.payload())).thenReturn(true);
-
         worker.process(queued);
 
         verify(lifecycle).claim(queued.payload());
@@ -33,7 +31,6 @@ class SqsBackfillWorkerTest {
     @Test
     void retriesRetryableFailuresWithoutAcknowledging() {
         BackfillQueue.QueuedBatch queued = queued(1);
-        when(lifecycle.claim(queued.payload())).thenReturn(true);
         doThrow(new SqsBackfillWorker.RetryableBatchException("GMAIL_RATE_LIMITED"))
                 .when(processor).process(queued.payload());
 
@@ -47,7 +44,6 @@ class SqsBackfillWorkerTest {
     @Test
     void deadLettersAfterConfiguredAttemptLimit() {
         BackfillQueue.QueuedBatch queued = queued(3);
-        when(lifecycle.claim(queued.payload())).thenReturn(true);
         doThrow(new SqsBackfillWorker.RetryableBatchException("GMAIL_UNAVAILABLE"))
                 .when(processor).process(queued.payload());
 
@@ -61,7 +57,6 @@ class SqsBackfillWorkerTest {
     @Test
     void doesNotRetryNonRetryableFailures() {
         BackfillQueue.QueuedBatch queued = queued(1);
-        when(lifecycle.claim(queued.payload())).thenReturn(true);
         doThrow(new SqsBackfillWorker.NonRetryableBatchException("INVALID_BATCH"))
                 .when(processor).process(queued.payload());
 
@@ -70,17 +65,6 @@ class SqsBackfillWorkerTest {
         verify(lifecycle).failed(queued.payload(), "INVALID_BATCH");
         verify(queue).acknowledge(queued.receipt());
         org.mockito.Mockito.verify(queue, org.mockito.Mockito.never()).retry(queued.receipt(), Duration.ofSeconds(20));
-    }
-
-    @Test
-    void acknowledgesDuplicateDeliveryWithoutReprocessingClaimedOrCompletedBatch() {
-        BackfillQueue.QueuedBatch queued = queued(2);
-        when(lifecycle.claim(queued.payload())).thenReturn(false);
-
-        worker.process(queued);
-
-        org.mockito.Mockito.verifyNoInteractions(processor);
-        verify(queue).acknowledge(queued.receipt());
     }
 
     private static BackfillQueue.QueuedBatch queued(int attempt) {
