@@ -42,6 +42,7 @@ public class RestGmailApiClient implements GmailApiClient {
     private final String clientId;
     private final String clientSecret;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public RestGmailApiClient(@org.springframework.beans.factory.annotation.Value("${GMAIL_CLIENT_ID}") String clientId,
                               @org.springframework.beans.factory.annotation.Value("${GMAIL_CLIENT_SECRET}") String clientSecret) {
         this(RestClient.builder().build(), DEFAULT_TOKEN_ENDPOINT, DEFAULT_GMAIL_ENDPOINT, clientId, clientSecret);
