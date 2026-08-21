@@ -54,6 +54,19 @@ class GmailBackfillServiceTest {
     }
 
     @Test
+    void publishesIdentifierOnlyJobsWhenQueueIsConfigured() {
+        BackfillQueue queue = mock(BackfillQueue.class);
+        GmailBackfillService queuedService = new GmailBackfillService(runs, batches, connections,
+                new GmailBackfillWindowPlanner(), java.util.Optional.of(queue), Clock.fixed(now, ZoneOffset.UTC));
+
+        queuedService.start(new BackfillRequest(connectionId,
+                Instant.parse("2026-08-01T12:00:00Z"), now, BackfillMode.AUTOMATIC),
+                new BackfillOwnerContext("tenant-1", "user-1"), "idem-queue");
+
+        verify(queue, times(4)).publish(any(BackfillQueue.BatchPayload.class));
+    }
+
+    @Test
     void replaysAnIdempotentRequestWithoutCreatingAnotherRun() {
         GmailBackfillRunEntity existing = GmailBackfillRunEntity.queued(
                 UUID.randomUUID(), "tenant-1", "user-1", connectionId, "idem-1", BackfillMode.AUTOMATIC,

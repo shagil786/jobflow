@@ -37,6 +37,12 @@ class GmailBackfillBatchEntity {
         entity.priority = window.priority(); entity.status = BackfillBatchStatus.QUEUED; entity.createdAt = now; entity.updatedAt = now;
         return entity;
     }
-    UUID getBatchId() { return batchId; } UUID getRunId() { return runId; } int getSequenceNo() { return sequenceNo; }
+    UUID getBatchId() { return batchId; } UUID getRunId() { return runId; } UUID getConnectionId() { return connectionId; }
+    java.time.Instant getWindowFrom() { return windowFrom; } java.time.Instant getWindowTo() { return windowTo; }
+    void markRunning(Instant now) { status = BackfillBatchStatus.RUNNING; attemptCount++; updatedAt = now; }
+    void markCompleted(Instant now) { status = BackfillBatchStatus.COMPLETED; updatedAt = now; }
+    void markFailed(String code, Instant now) { status = BackfillBatchStatus.FAILED; lastErrorCode = code; updatedAt = now; }
+    void markDeadLettered(String code, Instant now) { status = BackfillBatchStatus.DEAD_LETTERED; lastErrorCode = code; updatedAt = now; }
+    int getSequenceNo() { return sequenceNo; }
     BackfillBatchStatus getStatus() { return status; } String getTenantId() { return tenantId; } String getUserId() { return userId; }
 }

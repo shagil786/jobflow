@@ -5,6 +5,8 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
 class GmailBackfillService {
@@ -12,10 +14,18 @@ class GmailBackfillService {
     private final GmailBackfillBatchRepository batches;
     private final GmailConnectionStore connections;
     private final GmailBackfillWindowPlanner planner;
+    private final Optional<BackfillQueue> queue;
     private final Clock clock;
 
-    GmailBackfillService(GmailBackfillRepository runs, GmailBackfillBatchRepository batches, GmailConnectionStore connections, GmailBackfillWindowPlanner planner, Clock clock) {
-        this.runs = runs; this.batches = batches; this.connections = connections; this.planner = planner; this.clock = clock;
+    @Autowired
+    GmailBackfillService(GmailBackfillRepository runs, GmailBackfillBatchRepository batches, GmailConnectionStore connections,
+            GmailBackfillWindowPlanner planner, Optional<BackfillQueue> queue, Clock clock) {
+        this.runs = runs; this.batches = batches; this.connections = connections; this.planner = planner; this.queue = queue; this.clock = clock;
+    }
+
+    GmailBackfillService(GmailBackfillRepository runs, GmailBackfillBatchRepository batches, GmailConnectionStore connections,
+            GmailBackfillWindowPlanner planner, Clock clock) {
+        this(runs, batches, connections, planner, Optional.empty(), clock);
     }
 
     @Transactional
@@ -33,7 +43,11 @@ class GmailBackfillService {
         Instant now = Instant.now(clock);
         GmailBackfillRunEntity run = GmailBackfillRunEntity.queued(UUID.randomUUID(), owner.tenantId(), owner.userId(), request.connectionId(), idempotencyKey, mode, from, to, GmailBackfillWindowPlanner.DEFAULT_BATCH_SIZE_DAYS, UUID.randomUUID().toString(), now);
         run.setTotalBatches(windows.size()); runs.save(run);
-        batches.saveAll(java.util.stream.IntStream.range(0, windows.size()).mapToObj(index -> GmailBackfillBatchEntity.queued(run.getRunId(), owner.tenantId(), owner.userId(), request.connectionId(), index, windows.get(index), now)).toList());
+        List<GmailBackfillBatchEntity> persisted = java.util.stream.IntStream.range(0, windows.size()).mapToObj(index -> GmailBackfillBatchEntity.queued(run.getRunId(), owner.tenantId(), owner.userId(), request.connectionId(), index, windows.get(index), now)).toList();
+        batches.saveAll(persisted);
+        queue.ifPresent(backfillQueue -> persisted.forEach(batch -> backfillQueue.publish(new BackfillQueue.BatchPayload(
+                batch.getRunId(), batch.getBatchId(), batch.getConnectionId(), batch.getTenantId(), batch.getUserId(),
+                batch.getSequenceNo(), batch.getWindowFrom(), batch.getWindowTo(), run.getCorrelationId(), UUID.randomUUID().toString()))));
         return run.toRecord();
     }
 
