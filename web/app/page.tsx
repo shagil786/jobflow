@@ -41,6 +41,7 @@ export default function Home() {
   const [captureSaving, setCaptureSaving] = useState(false);
   const [signOutSaving, setSignOutSaving] = useState(false);
   const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState("");
   const [gmailSyncing, setGmailSyncing] = useState(false);
   const [gmailSyncMessage, setGmailSyncMessage] = useState("");
   const [reviews, setReviews] = useState<ReviewSuggestion[]>([]);
@@ -51,7 +52,7 @@ export default function Home() {
     let active = true;
     Promise.all([fetch("/api/applications", { cache: "no-store" }), fetch("/api/gmail/status", { cache: "no-store" }), fetch("/api/reviews", { cache: "no-store" })])
       .then(async ([response, gmailResponse, reviewResponse]) => {
-        if (gmailResponse.ok) { const status = await gmailResponse.json() as { connected?: boolean }; setGmailConnected(status.connected === true); }
+        if (gmailResponse.ok) { const status = await gmailResponse.json() as { connected?: boolean; email?: string }; setGmailConnected(status.connected === true); setGmailEmail(status.email ?? ""); }
         if (reviewResponse.ok) { setReviews(await reviewResponse.json() as ReviewSuggestion[]); setReviewLoadState("ready"); } else setReviewLoadState("unavailable");
         if (response.status === 401) { setLoadState("auth"); return []; }
         if (!response.ok) throw new Error("application service unavailable");
@@ -90,7 +91,7 @@ export default function Home() {
     try {
       const response = await fetch("/api/auth/logout", { method: "POST" });
       if (!response.ok) throw new Error("sign out failed");
-      setActions([]); setGmailConnected(false); setLoadState("auth"); notify("You have been signed out.");
+      setActions([]); setGmailConnected(false); setGmailEmail(""); setLoadState("auth"); notify("You have been signed out.");
     } catch { notify("Sign out could not be confirmed. Please try again."); }
     finally { setSignOutSaving(false); }
   };
@@ -139,8 +140,8 @@ export default function Home() {
           <button type="button" onClick={() => notify("Analytics will learn from your confirmed outcomes.")}><NavIcon name="insight" /><span>Insights</span></button>
         </nav>
         <div className="sidebar-spacer" />
-        <div className="sync-card"><div className="sync-title"><span className="sync-kicker"><span className={`sync-dot ${gmailConnected ? "connected" : "disconnected"}`} aria-hidden="true" /> Gmail connection</span><span className="sync-state">{gmailConnected ? "Live" : "Off"}</span></div><p>{gmailConnected ? "Only messages labeled JobFlow/Track enter your workspace." : "Connect a verified account to bring your job conversations into one place."}</p>{gmailSyncMessage && <div className="sync-status" role="status"><span aria-hidden="true">!</span>{gmailSyncMessage}</div>}{loadState === "ready" ? gmailConnected ? <div className="sync-actions"><button className="sync-button" type="button" onClick={syncGmail} disabled={gmailSyncing}><span>{gmailSyncing ? "Syncing Gmail…" : "Sync now"}</span><span aria-hidden="true">→</span></button><a className="sync-link" href="/api/gmail/connect">Manage connection</a></div> : <a className="sync-button" href="/api/gmail/connect"><span>Connect Gmail</span><span aria-hidden="true">→</span></a> : loadState === "auth" ? <a className="sync-button" href="/api/auth/login"><span>Sign in to connect</span><span aria-hidden="true">→</span></a> : <span className="sync-button" aria-disabled="true"><span>Checking session…</span></span>}</div>
-        <div className="profile"><div className="avatar" aria-hidden="true">?</div><div className="profile-copy"><strong>Signed-in account</strong><br /><span>Private workspace</span></div>{loadState === "ready" && <button className="profile-action" type="button" onClick={signOut} disabled={signOutSaving} aria-label={signOutSaving ? "Signing out" : "Sign out"}><span aria-hidden="true">↪</span>{signOutSaving ? "Signing out…" : "Sign out"}</button>}</div>
+        <div className="sync-card"><div className="sync-title"><span className="sync-kicker"><span className={`sync-dot ${gmailConnected ? "connected" : "disconnected"}`} aria-hidden="true" /> Gmail connection</span><span className="sync-state">{gmailConnected ? "Live" : "Off"}</span></div><p>{gmailConnected ? <>Only messages labeled JobFlow/Track enter your workspace.<strong className="gmail-address">{gmailEmail || "Connected Gmail account"}</strong></> : "Connect a verified account to bring your job conversations into one place."}</p>{gmailSyncMessage && <div className="sync-status" role="status"><span aria-hidden="true">!</span>{gmailSyncMessage}</div>}{loadState === "ready" ? gmailConnected ? <div className="sync-actions"><button className="sync-button" type="button" onClick={syncGmail} disabled={gmailSyncing}><span>{gmailSyncing ? "Syncing Gmail…" : "Sync now"}</span><span aria-hidden="true">→</span></button><a className="sync-link" href="/api/gmail/connect">Reconnect Gmail</a></div> : <a className="sync-button" href="/api/gmail/connect"><span>Connect Gmail</span><span aria-hidden="true">→</span></a> : loadState === "auth" ? <a className="sync-button" href="/api/auth/login"><span>Sign in to connect</span><span aria-hidden="true">→</span></a> : <span className="sync-button" aria-disabled="true"><span>Checking session…</span></span>}</div>
+        <div className="profile"><div className="avatar" aria-hidden="true">{gmailEmail ? gmailEmail.slice(0, 1).toUpperCase() : "J"}</div><div className="profile-copy"><strong>Your workspace</strong><span>{gmailEmail || "Private JobFlow account"}</span></div>{loadState === "ready" && <button className="profile-action" type="button" onClick={signOut} disabled={signOutSaving} aria-label={signOutSaving ? "Signing out" : "Sign out"}><span aria-hidden="true">↪</span>{signOutSaving ? "Signing out…" : "Sign out"}</button>}</div>
       </aside>
 
       <main className="main">

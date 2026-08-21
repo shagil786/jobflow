@@ -208,6 +208,7 @@ body { background: radial-gradient(circle at 68% 0%, #ffffff 0, var(--paper) 38r
 .sync-kicker { display: inline-flex; align-items: center; gap: 8px; }
 .sync-state { color: #98dfac; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .sync-card p { color: #aecbbb; margin: 12px 0 14px; }
+.gmail-address { display: block; max-width: 100%; margin-top: 7px; overflow-wrap: anywhere; color: #e0f5e4; font-size: 11px; font-weight: 700; }
 .sync-button { min-height: 38px; border-radius: 10px; border: 1px solid rgba(176, 255, 204, .3); background: #b4f3c6; box-shadow: 0 8px 18px rgba(0,0,0,.1); }
 .sync-button::after { content: none; }
 .sync-button > span:last-child { font-size: 15px; transition: transform .18s ease; }
@@ -215,9 +216,12 @@ body { background: radial-gradient(circle at 68% 0%, #ffffff 0, var(--paper) 38r
 .sync-status { display: flex; gap: 7px; align-items: flex-start; padding: 8px; margin: -3px 0 12px; border: 1px solid rgba(255, 205, 147, .2); border-radius: 9px; background: rgba(157, 89, 28, .16); color: #f6d7a7; }
 .sync-status > span { display: grid; place-items: center; flex: 0 0 15px; width: 15px; height: 15px; border-radius: 50%; background: #e8b46f; color: #543318; font-weight: 900; font-size: 10px; }
 .sync-link { color: #b7f1c6; }
-.profile { position: relative; z-index: 1; border-top: 1px solid rgba(221, 255, 229, .1); padding: 18px 8px 0; }
-.profile-copy { min-width: 0; }
-.profile-action { display: flex; align-items: center; gap: 6px; margin: 13px 0 0 40px; padding: 0; border: 0; background: transparent; color: #9bbbaa; font-size: 11px; }
+.profile { position: relative; z-index: 1; display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; border-top: 1px solid rgba(221, 255, 229, .1); padding: 18px 8px 0; }
+.profile-copy { min-width: 0; display: grid; gap: 4px; align-content: center; }
+.profile-copy strong, .profile-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-copy strong { color: #e5f6e9; font-size: 12px; }
+.profile-copy span { color: #9dbbaa; font-size: 10px; }
+.profile-action { grid-column: 2; display: flex; align-items: center; gap: 6px; margin: 11px 0 0; padding: 7px 0 0; border: 0; border-top: 1px solid rgba(221, 255, 229, .08); background: transparent; color: #9bbbaa; font-size: 11px; text-align: left; }
 .profile-action:hover { color: #e6fff0; }
 .profile-action span { font-size: 15px; }
 
