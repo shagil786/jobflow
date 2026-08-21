@@ -20,7 +20,7 @@ public class GmailConnectionService {
     public GmailConnectionRecord connect(GmailConnectionCommand command) {
         require(command.userId(), "userId"); require(command.tenantId(), "tenantId");
         require(command.email(), "email"); require(command.refreshToken(), "refreshToken"); require(command.historyId(), "historyId");
-        StoredGmailConnection existing = store.findByOwner(command.tenantId(), command.userId()).orElse(null);
+        StoredGmailConnection existing = store.findByOwnerAndEmail(command.tenantId(), command.userId(), command.email()).orElse(null);
         UUID id = existing == null ? UUID.randomUUID() : existing.connectionId();
         store.save(new StoredGmailConnection(id, command.userId(), command.tenantId(), command.email(),
                 cipher.encrypt(command.refreshToken()), command.historyId(), null, Instant.now(clock)));

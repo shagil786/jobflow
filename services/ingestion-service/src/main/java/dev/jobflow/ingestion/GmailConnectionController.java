@@ -12,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
@@ -33,7 +32,7 @@ public class GmailConnectionController {
     @PostMapping("/{connectionId}/sync")
     GmailSyncService.GmailSyncResult sync(@RequestHeader("X-Internal-Service-Key") String provided, @PathVariable("connectionId") UUID connectionId) { authorize(provided); return syncService.sync(connectionId); }
     private final GmailSyncService syncService;
-    private void authorize(String provided) { if(provided==null || !MessageDigest.isEqual(key.getBytes(StandardCharsets.UTF_8),provided.getBytes(StandardCharsets.UTF_8))) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,"internal authorization failed"); }
+    private void authorize(String provided) { if(provided==null || !MessageDigest.isEqual(key.getBytes(StandardCharsets.UTF_8),provided.getBytes(StandardCharsets.UTF_8))) throw new InvalidInternalServiceKeyException(); }
     record ConnectRequest(String userId,String tenantId,String email,String refreshToken,String historyId) {}
     record CursorRequest(String historyId,String pageToken) {}
 }

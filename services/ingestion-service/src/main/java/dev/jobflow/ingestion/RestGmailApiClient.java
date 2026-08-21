@@ -18,6 +18,7 @@ import org.springframework.web.util.HtmlUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.web.client.RestClientException;
 
 @Component
 public class RestGmailApiClient implements GmailApiClient {
@@ -104,7 +105,9 @@ public class RestGmailApiClient implements GmailApiClient {
                     .body(MessageDetailResponse.class);
             return toSafeMetadata(response);
         } catch (RestClientResponseException e) {
-            throw new IllegalStateException("Gmail metadata fetch failed", e);
+            throw new GmailFetchException(e);
+        } catch (RestClientException e) {
+            throw new GmailFetchException(e);
         }
     }
 
@@ -118,7 +121,9 @@ public class RestGmailApiClient implements GmailApiClient {
                     .body(MessageDetailResponse.class);
             return toSafeBody(response);
         } catch (RestClientResponseException e) {
-            throw new IllegalStateException("Gmail message body fetch failed", e);
+            throw new GmailFetchException(e);
+        } catch (RestClientException e) {
+            throw new GmailFetchException(e);
         }
     }
 
@@ -135,7 +140,7 @@ public class RestGmailApiClient implements GmailApiClient {
 
     private SafeGmailMessage toSafeMetadata(MessageDetailResponse response) {
         if (response == null || response.id == null || response.id.isBlank()) {
-            throw new IllegalStateException("Gmail metadata was not returned");
+            throw new GmailFetchException(new IllegalStateException("Gmail metadata was not returned"));
         }
         Map<String, String> headers = extractHeaders(response.payload);
         return new SafeGmailMessage(
@@ -153,7 +158,7 @@ public class RestGmailApiClient implements GmailApiClient {
 
     private SafeGmailMessage toSafeBody(MessageDetailResponse response) {
         if (response == null || response.id == null || response.id.isBlank()) {
-            throw new IllegalStateException("Gmail message body was not returned");
+            throw new GmailFetchException(new IllegalStateException("Gmail message body was not returned"));
         }
         CollectedContent content = new CollectedContent();
         collectTextParts(response.payload, content);

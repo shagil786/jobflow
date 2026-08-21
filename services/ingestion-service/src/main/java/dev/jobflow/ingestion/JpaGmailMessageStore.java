@@ -9,15 +9,18 @@ public class JpaGmailMessageStore implements GmailMessageStore {
     private static final String OWNER_MISMATCH = "gmail message identity already belongs to a different owner";
 
     private final GmailMessageRepository repository;
+    private final GmailConnectionRepository connections;
 
-    public JpaGmailMessageStore(GmailMessageRepository repository) {
+    public JpaGmailMessageStore(GmailMessageRepository repository, GmailConnectionRepository connections) {
         this.repository = repository;
+        this.connections = connections;
     }
 
     @Override
     public boolean saveIfAbsent(GmailMessageMetadata message) {
         requireOwner(message.tenantId(), "tenantId");
         requireOwner(message.userId(), "userId");
+        assertConnectionOwner(message.connectionId(), message.tenantId(), message.userId());
         Optional<GmailMessageEntity> existing = repository.findByIdConnectionIdAndIdMessageId(
                 message.connectionId(), message.messageId());
         if (existing.isPresent()) {
@@ -28,6 +31,14 @@ public class JpaGmailMessageStore implements GmailMessageStore {
         }
         repository.save(new GmailMessageEntity(message));
         return true;
+    }
+
+    private void assertConnectionOwner(UUID connectionId, String tenantId, String userId) {
+        GmailConnectionEntity connection = connections.findById(connectionId)
+                .orElseThrow(UnknownGmailConnectionException::new);
+        if (!tenantId.equals(connection.getTenantId()) || !userId.equals(connection.getUserId())) {
+            throw new IllegalStateException(OWNER_MISMATCH);
+        }
     }
 
     private static void requireOwner(String value, String field) {

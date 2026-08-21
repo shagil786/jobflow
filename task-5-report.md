@@ -5,15 +5,21 @@ Worktree: `/Users/mdshagilnizami/Documents/jobs/jobflow/.worktrees/evidence-iden
 
 ## Summary
 
-Task 5 round 1 review fixes are complete. Unknown Gmail connections on the internal `/sync` and `/cursor` routes now use a typed exception and return the same sanitized `404` envelope. The previous package-wide `IllegalArgumentException` handler and message-text classification were removed, so unrelated validation and unexpected errors are not converted into public `400` responses.
+Task 5 final broad-review fixes are complete. Same-owner reconnects reuse a connection only when the modeled Gmail provider email matches; a different Gmail mailbox receives a new connection identity. Message and thread inserts validate connection ownership before the first insert. Internal authentication and Gmail fetch failures use typed handlers with safe codes/messages and optional `X-Request-Id` metadata; arbitrary exception messages are not exposed.
 
 ## Verification Results
 
 - Tenant and authorization boundaries:
   - Wrong internal key is covered by `GmailConnectionControllerTest` and returns `401`.
-  - Missing internal key is covered by `GmailConnectionControllerTest` and returns a controlled `400`.
+  - Missing internal key is covered by `GmailConnectionControllerTest` and returns a controlled `401` envelope.
   - Unknown connections on the internal sync and cursor routes are covered by `GmailConnectionControllerTest` and return `404` with `{"code":"GMAIL_CONNECTION_NOT_FOUND","message":"Gmail connection not found"}`; neither response includes owner/tenant data.
   - Cross-tenant message lookup remains non-returning and is already covered by `GmailMessageStoreTest`.
+  - Same-mailbox reconnect identity reuse and different-mailbox identity separation are covered by `GmailConnectionServiceTest`.
+  - First-insert owner mismatches are covered by `GmailMessageStoreTest` and `GmailThreadStoreTest`; both reject before persistence.
+
+- Controlled errors:
+  - Bad internal authentication returns `INTERNAL_AUTHENTICATION_FAILED` without the supplied key.
+  - Gmail fetch failures return `GMAIL_FETCH_FAILED` with `502 Bad Gateway`, without tokens or Gmail response bodies; request IDs are returned when supplied.
 
 - Retention and logging:
   - Source scan found no ingestion-service application logger calls that emit raw body content, prompts, or OAuth tokens.
@@ -27,10 +33,9 @@ Task 5 round 1 review fixes are complete. Unknown Gmail connections on the inter
   - `cd services/ingestion-service && mvn -q -Dmaven.repo.local=/private/tmp/jobflow-review-m2 test` — passed.
 
 - Web:
-  - `cd web && npm test -- --run` — passed: 13 test files, 28 tests.
-  - `cd web && npm run typecheck` — passed.
+  - `cd web && npm test -- --run && npm run typecheck` — passed: 13 test files, 28 tests, and typecheck passed.
 
-All required round 1 checks passed on 2026-08-21.
+All required final broad-review checks passed on 2026-08-21.
 
 ## Operational Smoke Checks
 

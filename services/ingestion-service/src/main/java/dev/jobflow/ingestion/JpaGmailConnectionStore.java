@@ -11,4 +11,5 @@ public class JpaGmailConnectionStore implements GmailConnectionStore {
     @Override public StoredGmailConnection save(StoredGmailConnection value) { GmailConnectionEntity entity=repository.findById(value.connectionId()).orElseGet(() -> new GmailConnectionEntity(value)); entity.update(value); return repository.save(entity).toModel(); }
     @Override public Optional<StoredGmailConnection> find(UUID id) { return repository.findById(id).map(GmailConnectionEntity::toModel); }
     @Override public Optional<StoredGmailConnection> findByOwner(String tenantId, String userId) { return repository.findByTenantIdAndUserId(tenantId, userId).map(GmailConnectionEntity::toModel); }
+    @Override public Optional<StoredGmailConnection> findByOwnerAndEmail(String tenantId, String userId, String email) { return repository.findByTenantIdAndUserIdAndEmailIgnoreCase(tenantId, userId, email).map(GmailConnectionEntity::toModel); }
 }

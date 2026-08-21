@@ -29,14 +29,17 @@ class GmailConnectionControllerTest {
     @Test
     void rejectsWrongInternalKey() throws Exception {
         mvc.perform(post("/internal/v1/gmail/connections/00000000-0000-0000-0000-000000000000/sync")
-                        .header("X-Internal-Service-Key", "wrong"))
-                .andExpect(status().isUnauthorized());
+                        .header("X-Internal-Service-Key", "wrong")
+                        .header("X-Request-Id", "request-auth"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().json("{\"code\":\"INTERNAL_AUTHENTICATION_FAILED\",\"message\":\"Internal service authentication failed\",\"requestId\":\"request-auth\"}"));
     }
 
     @Test
     void rejectsMissingInternalKeyWithAControlledClientError() throws Exception {
         mvc.perform(post("/internal/v1/gmail/connections/00000000-0000-0000-0000-000000000000/sync"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnauthorized())
+                .andExpect(content().json("{\"code\":\"INTERNAL_AUTHENTICATION_FAILED\",\"message\":\"Internal service authentication failed\"}"));
     }
 
     @Test
@@ -66,5 +69,20 @@ class GmailConnectionControllerTest {
                 .andExpect(content().json("{\"code\":\"GMAIL_CONNECTION_NOT_FOUND\",\"message\":\"Gmail connection not found\"}"))
                 .andExpect(content().string(not(containsString("owner"))))
                 .andExpect(content().string(not(containsString("tenant"))));
+    }
+
+    @Test
+    void returnsSafeEnvelopeForGmailFetchFailures() throws Exception {
+        UUID connectionId = UUID.fromString("00000000-0000-0000-0000-000000000123");
+        when(syncService.sync(connectionId)).thenThrow(new GmailFetchException(
+                new IllegalStateException("token=secret gmail response body")));
+
+        mvc.perform(post("/internal/v1/gmail/connections/" + connectionId + "/sync")
+                        .header("X-Internal-Service-Key", "test-key")
+                        .header("X-Request-Id", "request-fetch"))
+                .andExpect(status().isBadGateway())
+                .andExpect(content().json("{\"code\":\"GMAIL_FETCH_FAILED\",\"message\":\"Gmail fetch failed\",\"requestId\":\"request-fetch\"}"))
+                .andExpect(content().string(not(containsString("secret"))))
+                .andExpect(content().string(not(containsString("response body"))));
     }
 }

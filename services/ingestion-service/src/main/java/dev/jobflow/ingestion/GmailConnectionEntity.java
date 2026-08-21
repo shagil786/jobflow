@@ -19,6 +19,8 @@ public class GmailConnectionEntity {
     @Column(length = 255) private String pageToken;
     @Column(nullable = false) private Instant connectedAt;
     protected GmailConnectionEntity() {}
+    String getUserId() { return userId; }
+    String getTenantId() { return tenantId; }
     GmailConnectionEntity(StoredGmailConnection value) { update(value); }
     void update(StoredGmailConnection value) { connectionId=value.connectionId(); userId=value.userId(); tenantId=value.tenantId(); email=value.email(); refreshTokenCiphertext=value.refreshTokenCiphertext(); lastHistoryId=value.lastHistoryId(); pageToken=value.pageToken(); connectedAt=value.connectedAt(); }
     StoredGmailConnection toModel() { return new StoredGmailConnection(connectionId,userId,tenantId,email,refreshTokenCiphertext,lastHistoryId,pageToken,connectedAt); }

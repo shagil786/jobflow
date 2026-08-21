@@ -31,7 +31,7 @@ public class GmailEvidenceService {
 
     public PreparedEvidence prepare(UUID connectionId, String messageId) {
         StoredGmailConnection connection = connections.find(connectionId)
-                .orElseThrow(() -> new IllegalArgumentException("Gmail connection not found"));
+                .orElseThrow(UnknownGmailConnectionException::new);
         GmailMessageMetadata metadata = messages.findByProviderIdentity(connection.tenantId(), connection.userId(), connectionId, messageId)
                 .orElseThrow(() -> new IllegalArgumentException("Gmail message not found"));
 

@@ -65,6 +65,17 @@ class GmailMessageStoreTest {
     }
 
     @Test
+    void rejectsOwnerMismatchBeforeFirstMessageInsert() {
+        UUID connectionId = UUID.randomUUID();
+        insertConnection(connectionId, "tenant-1", "user-1");
+
+        assertThatThrownBy(() -> store.saveIfAbsent(metadata(connectionId, "tenant-2", "user-2", "message-first", "thread-first")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("gmail message identity already belongs to a different owner");
+        assertThat(repository.count()).isZero();
+    }
+
+    @Test
     void rejectsNullOrBlankOwnersBeforePersistence() {
         UUID connectionId = UUID.randomUUID();
         insertConnection(connectionId, "tenant-1", "user-1");

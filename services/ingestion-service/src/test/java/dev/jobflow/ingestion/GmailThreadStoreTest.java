@@ -59,4 +59,17 @@ class GmailThreadStoreTest {
                 .hasMessage("gmail thread identity already belongs to a different owner");
         assertThat(repository.count()).isEqualTo(1);
     }
+
+    @Test
+    void rejectsOwnerMismatchBeforeFirstThreadInsert() {
+        UUID connectionId = UUID.randomUUID();
+        connections.save(new GmailConnectionEntity(new StoredGmailConnection(
+                connectionId, "user-1", "tenant-1", "user-1@example.com", "encrypted:refresh", "history-1", null,
+                Instant.parse("2026-08-21T10:00:00Z"))));
+
+        assertThatThrownBy(() -> store.saveIfAbsent(connectionId, "tenant-2", "user-2", "thread-first"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("gmail thread identity already belongs to a different owner");
+        assertThat(repository.count()).isZero();
+    }
 }

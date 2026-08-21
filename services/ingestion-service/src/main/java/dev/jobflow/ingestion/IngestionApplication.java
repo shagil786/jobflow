@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
@@ -24,7 +23,7 @@ public class IngestionApplication {
     }
     @GetMapping("/internal/service-info")
     ServiceInfo info(@RequestHeader(value = "X-Internal-Service-Key", required = false) String provided) {
-      if (provided == null || !MessageDigest.isEqual(key.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8))) throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "internal authorization failed");
+      if (provided == null || !MessageDigest.isEqual(key.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8))) throw new InvalidInternalServiceKeyException();
       return new ServiceInfo("ingestion-service", "scoped Gmail and browser captures", "ready");
     }
   }

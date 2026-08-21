@@ -53,6 +53,35 @@ class GmailConnectionServiceTest {
                 .hasMessage("Gmail connection not found");
     }
 
+    @Test
+    void givesAReconnectToADifferentGmailMailboxANewConnectionIdentity() {
+        InMemoryGmailConnectionStore store = new InMemoryGmailConnectionStore();
+        GmailConnectionService service = new GmailConnectionService(store, new TestCipher(), Clock.fixed(NOW, ZoneOffset.UTC));
+
+        GmailConnectionRecord first = service.connect(new GmailConnectionCommand(
+                "user-1", "tenant-1", "first@gmail.com", "refresh-token-1", "history-1"));
+        GmailConnectionRecord second = service.connect(new GmailConnectionCommand(
+                "user-1", "tenant-1", "second@gmail.com", "refresh-token-2", "history-2"));
+
+        assertThat(second.connectionId()).isNotEqualTo(first.connectionId());
+        assertThat(store.find(first.connectionId()).orElseThrow().email()).isEqualTo("first@gmail.com");
+        assertThat(store.find(second.connectionId()).orElseThrow().email()).isEqualTo("second@gmail.com");
+    }
+
+    @Test
+    void reusesTheConnectionIdentityForTheSameGmailMailbox() {
+        InMemoryGmailConnectionStore store = new InMemoryGmailConnectionStore();
+        GmailConnectionService service = new GmailConnectionService(store, new TestCipher(), Clock.fixed(NOW, ZoneOffset.UTC));
+
+        GmailConnectionRecord first = service.connect(new GmailConnectionCommand(
+                "user-1", "tenant-1", "first@gmail.com", "refresh-token-1", "history-1"));
+        GmailConnectionRecord reconnected = service.connect(new GmailConnectionCommand(
+                "user-1", "tenant-1", "FIRST@gmail.com", "refresh-token-2", "history-2"));
+
+        assertThat(reconnected.connectionId()).isEqualTo(first.connectionId());
+        assertThat(store.find(first.connectionId()).orElseThrow().lastHistoryId()).isEqualTo("history-2");
+    }
+
     private static final class TestCipher implements GmailTokenCipher {
         @Override public String encrypt(String value) { return "encrypted:" + value; }
         @Override public String decrypt(String value) { return value.substring("encrypted:".length()); }
@@ -63,6 +92,7 @@ class GmailConnectionServiceTest {
         @Override public StoredGmailConnection save(StoredGmailConnection value) { values.put(value.connectionId(), value); return value; }
         @Override public Optional<StoredGmailConnection> find(UUID id) { return Optional.ofNullable(values.get(id)); }
         @Override public Optional<StoredGmailConnection> findByOwner(String tenantId, String userId) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId)).findFirst(); }
+        @Override public Optional<StoredGmailConnection> findByOwnerAndEmail(String tenantId, String userId, String email) { return values.values().stream().filter(v -> v.tenantId().equals(tenantId) && v.userId().equals(userId) && v.email().equalsIgnoreCase(email)).findFirst(); }
         String rawRefreshToken(UUID id) { return values.get(id).refreshTokenCiphertext(); }
     }
 }
