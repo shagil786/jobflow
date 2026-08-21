@@ -35,6 +35,8 @@ export type MessageIntent =
   | "UNKNOWN";
 
 export interface EvidenceSpanV1 {
+  tenantId: string;
+  userId: string;
   evidenceId: string;
   messageId: string;
   threadId: string;
@@ -81,6 +83,8 @@ export interface ClassificationSuggestion {
 }
 
 export interface ClassificationSuggestionV1 {
+  tenantId: string;
+  userId: string;
   suggestionId: string;
   messageId: string;
   threadId: string;

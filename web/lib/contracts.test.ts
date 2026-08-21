@@ -31,6 +31,8 @@ describe("versioned evidence and identity contracts", () => {
 
   it("exports the expected evidence span contract", () => {
     expectTypeOf<EvidenceSpanV1>().toEqualTypeOf<{
+      tenantId: string;
+      userId: string;
       evidenceId: string;
       messageId: string;
       threadId: string;
@@ -67,6 +69,8 @@ describe("versioned evidence and identity contracts", () => {
     }>();
 
     expectTypeOf<ClassificationSuggestionV1>().toEqualTypeOf<{
+      tenantId: string;
+      userId: string;
       suggestionId: string;
       messageId: string;
       threadId: string;
