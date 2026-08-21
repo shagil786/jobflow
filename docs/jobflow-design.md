@@ -3,6 +3,7 @@
 **Status:** Approved foundation / implementation slice  
 **Date:** 2026-08-21  
 **Scope:** Production-oriented core workflow; expansion modules gated
+**Related plan:** `docs/superpowers/plans/2026-08-21-evidence-identity-foundation.md`
 
 ## Context
 
@@ -30,6 +31,7 @@ The first release is private by default. It does not auto-apply, mass-send cold 
 - NFR-3: All important interactive UI states MUST support loading, empty, error, success, keyboard navigation, and narrow screens.
 - NFR-4: Background work MUST support retries, dead-letter handling, and idempotent consumers.
 - NFR-5: Resume files MUST remain private and be served only through short-lived access URLs.
+- NFR-6: Any encrypted raw sanitized Gmail content retained for evidence preparation MUST default to 14 days, remain configurable, and exclude attachment analysis in v1.
 
 ## Acceptance criteria
 

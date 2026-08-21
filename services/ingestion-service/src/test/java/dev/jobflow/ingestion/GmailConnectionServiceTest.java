@@ -1,6 +1,7 @@
 package dev.jobflow.ingestion;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -40,6 +41,16 @@ class GmailConnectionServiceTest {
 
         assertThat(store.rawRefreshToken(record.connectionId())).isEqualTo(ciphertext);
         assertThat(store.find(record.connectionId()).orElseThrow().pageToken()).isEqualTo("page-2");
+    }
+
+    @Test
+    void reportsMissingConnectionsDuringCursorUpdatesAsClientErrors() {
+        InMemoryGmailConnectionStore store = new InMemoryGmailConnectionStore();
+        GmailConnectionService service = new GmailConnectionService(store, new TestCipher(), Clock.fixed(NOW, ZoneOffset.UTC));
+
+        assertThatThrownBy(() -> service.advanceCursor(UUID.fromString("00000000-0000-0000-0000-000000000123"), new SyncCursor("history-8", "page-2")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Gmail connection not found");
     }
 
     private static final class TestCipher implements GmailTokenCipher {
