@@ -1,0 +1,4 @@
+create table resume_versions (id uuid primary key, tenant_id varchar(120) not null, user_id varchar(120) not null, filename varchar(240) not null, content_hash varchar(64) not null, storage_key varchar(32) not null, created_at timestamp with time zone not null, active boolean not null);
+create table drafts (id uuid primary key, tenant_id varchar(120) not null, user_id varchar(120) not null, application_id varchar(80) not null, contact_id varchar(80) not null, resume_version_id varchar(80) not null, recipient varchar(320) not null, subject varchar(240) not null, body text not null, status varchar(32) not null, gmail_draft_id varchar(160), created_at timestamp with time zone not null, updated_at timestamp with time zone not null, constraint ux_draft_request unique(tenant_id,user_id,application_id,contact_id,resume_version_id));
+create index ix_resume_owner on resume_versions(tenant_id,user_id);
+create index ix_draft_owner on drafts(tenant_id,user_id);

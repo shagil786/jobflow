@@ -37,10 +37,14 @@ class GmailBackfillService {
         if (replay.isPresent()) return replay.get().toRecord();
         var connection = connections.find(request.connectionId()).orElseThrow(() -> new IllegalArgumentException("GMAIL_CONNECTION_NOT_FOUND"));
         if (!owner.tenantId().equals(connection.tenantId()) || !owner.userId().equals(connection.userId())) throw new IllegalArgumentException("GMAIL_CONNECTION_NOT_OWNED");
-        if (runs.findActiveByTenantIdAndUserId(owner.tenantId(), owner.userId()).isPresent()) throw new IllegalStateException("GMAIL_BACKFILL_ALREADY_ACTIVE");
+        // A repeated dashboard click must reattach to the existing run so the client can
+        // continue polling it instead of losing the run id behind a generic 409.
+        var active = runs.findActiveByTenantIdAndUserId(owner.tenantId(), owner.userId());
+        if (active.isPresent()) return reattach(active.get());
         Instant to = request.to() == null ? Instant.now(clock) : request.to();
         Instant from = request.from() == null ? to.minus(60, ChronoUnit.DAYS) : request.from();
-        BackfillMode mode = request.mode() == null ? BackfillMode.AUTOMATIC : request.mode();
+        BackfillMode mode = request.mode() == null || request.mode() == BackfillMode.AUTOMATIC
+                ? BackfillMode.FOCUSED : request.mode();
         List<BackfillWindow> windows = planner.plan(from, to);
         Instant now = Instant.now(clock);
         GmailBackfillRunEntity run = GmailBackfillRunEntity.queued(UUID.randomUUID(), owner.tenantId(), owner.userId(), request.connectionId(), idempotencyKey, mode, from, to, GmailBackfillWindowPlanner.DEFAULT_BATCH_SIZE_DAYS, UUID.randomUUID().toString(), now);
@@ -53,10 +57,38 @@ class GmailBackfillService {
         return run.toRecord();
     }
 
+    private BackfillRunRecord reattach(GmailBackfillRunEntity run) {
+        List<GmailBackfillBatchEntity> existing = batches.findByRunIdOrderBySequenceNoAsc(run.getRunId());
+        int completed = (int) existing.stream().filter(batch -> batch.getStatus() == BackfillBatchStatus.COMPLETED).count();
+        int failed = (int) existing.stream().filter(batch -> batch.getStatus() == BackfillBatchStatus.FAILED || batch.getStatus() == BackfillBatchStatus.DEAD_LETTERED).count();
+        Instant now = Instant.now(clock);
+        setCounters(run, existing, completed, failed, now);
+        if (completed + failed >= run.getTotalBatches()) {
+            run.transition(failed == 0 ? BackfillRunStatus.COMPLETED : BackfillRunStatus.FAILED, now);
+            return runs.save(run).toRecord();
+        }
+        List<GmailBackfillBatchEntity> retry = existing.stream()
+                .filter(batch -> batch.getStatus() == BackfillBatchStatus.QUEUED || batch.getStatus() == BackfillBatchStatus.RUNNING)
+                .peek(batch -> batch.markRetryable("WORKER_REATTACHED", now))
+                .toList();
+        if (!retry.isEmpty()) batches.saveAll(retry);
+        queue.ifPresent(backfillQueue -> retry.forEach(batch -> backfillQueue.publish(new BackfillQueue.BatchPayload(
+                batch.getRunId(), batch.getBatchId(), batch.getConnectionId(), batch.getTenantId(), batch.getUserId(),
+                batch.getSequenceNo(), batch.getWindowFrom(), batch.getWindowTo(), run.getCorrelationId(), UUID.randomUUID().toString()))));
+        if (run.getStatus() == BackfillRunStatus.QUEUED) run.transition(BackfillRunStatus.RUNNING, now);
+        return runs.save(run).toRecord();
+    }
+
     @Transactional(readOnly = true)
     BackfillRunRecord status(UUID runId, BackfillOwnerContext owner) {
         requireOwner(owner);
-        return runs.findByRunIdAndTenantIdAndUserId(runId, owner.tenantId(), owner.userId()).orElseThrow(() -> new IllegalArgumentException("GMAIL_BACKFILL_NOT_FOUND")).toRecord();
+        GmailBackfillRunEntity run = runs.findByRunIdAndTenantIdAndUserId(runId, owner.tenantId(), owner.userId())
+                .orElseThrow(() -> new IllegalArgumentException("GMAIL_BACKFILL_NOT_FOUND"));
+        List<GmailBackfillBatchEntity> current = batches.findByRunIdAndTenantIdAndUserIdOrderBySequenceNoAsc(runId, owner.tenantId(), owner.userId());
+        int completed = (int) current.stream().filter(batch -> batch.getStatus() == BackfillBatchStatus.COMPLETED).count();
+        int failed = (int) current.stream().filter(batch -> batch.getStatus() == BackfillBatchStatus.FAILED || batch.getStatus() == BackfillBatchStatus.DEAD_LETTERED).count();
+        setCounters(run, current, completed, failed, Instant.now(clock));
+        return run.toRecord();
     }
 
     @Transactional
@@ -75,4 +107,17 @@ class GmailBackfillService {
     private static void requireOwner(BackfillOwnerContext owner) { if (owner == null || blank(owner.tenantId()) || blank(owner.userId())) throw new IllegalArgumentException("BACKFILL_OWNER_REQUIRED"); }
     private static void requireKey(String value) { if (blank(value)) throw new IllegalArgumentException("IDEMPOTENCY_KEY_REQUIRED"); }
     private static boolean blank(String value) { return value == null || value.isBlank(); }
+    private static void setCounters(GmailBackfillRunEntity run, List<GmailBackfillBatchEntity> batches,
+            int completed, int failed, Instant now) {
+        int imported = batches.stream().mapToInt(GmailBackfillBatchEntity::getImportedMessages).sum();
+        int seen = batches.stream().mapToInt(GmailBackfillBatchEntity::getMetadataSeen).sum();
+        int filtered = batches.stream().mapToInt(GmailBackfillBatchEntity::getFilteredMessages).sum();
+        int candidates = batches.stream().mapToInt(GmailBackfillBatchEntity::getCandidateMessages).sum();
+        int bodies = batches.stream().mapToInt(GmailBackfillBatchEntity::getBodiesFetched).sum();
+        int indexed = batches.stream().mapToInt(GmailBackfillBatchEntity::getIndexedThreads).sum();
+        int classified = batches.stream().mapToInt(GmailBackfillBatchEntity::getClassifiedThreads).sum();
+        int promoted = batches.stream().mapToInt(GmailBackfillBatchEntity::getAutoPromoted).sum();
+        int review = batches.stream().mapToInt(GmailBackfillBatchEntity::getNeedsReview).sum();
+        run.setCounters(completed, failed, imported, seen, filtered, candidates, bodies, indexed, classified, promoted, review, now);
+    }
 }

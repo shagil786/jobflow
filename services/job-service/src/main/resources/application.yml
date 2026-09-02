@@ -22,6 +22,8 @@ server:
   port: ${JOBFLOW_JOB_PORT:8091}
   error:
     include-message: never
+jobflow:
+  official-job-feeds: ${JOBFLOW_OFFICIAL_JOB_FEED_URLS:}
 management:
   endpoints:
     web:

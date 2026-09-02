@@ -17,3 +17,6 @@ management:
     web:
       exposure:
         include: health,info
+jobflow:
+  sqs:
+    enabled: ${JOBFLOW_SQS_ENABLED:false}

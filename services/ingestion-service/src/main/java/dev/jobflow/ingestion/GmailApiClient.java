@@ -14,6 +14,10 @@ public interface GmailApiClient {
     HistoryPage listHistory(String accessToken, String startHistoryId, String labelId, String pageToken);
     SafeGmailMessage fetchMessageMetadata(String accessToken, String messageId);
     SafeGmailMessage fetchMessageBodyForProcessing(String accessToken, String messageId);
+    default String createDraft(String accessToken, String recipient, String subject, String body) { throw new UnsupportedOperationException("Gmail draft creation is not implemented by this client"); }
+    default List<SafeGmailMessage> fetchThreadForViewing(String accessToken, String threadId) {
+        throw new UnsupportedOperationException("thread viewing is not implemented by this client");
+    }
 
     record AccessToken(String value, Instant expiresAt) {}
     record MessageRef(String messageId, String threadId) {}

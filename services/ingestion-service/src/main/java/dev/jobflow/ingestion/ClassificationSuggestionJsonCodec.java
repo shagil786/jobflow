@@ -12,6 +12,7 @@ final class ClassificationSuggestionJsonCodec {
             new TypeReference<>() {};
     private static final TypeReference<List<EvidenceSpanV1>> EVIDENCE_LIST = new TypeReference<>() {};
     private static final TypeReference<List<String>> STRING_LIST = new TypeReference<>() {};
+    private static final TypeReference<List<ReviewReason>> REVIEW_REASON_LIST = new TypeReference<>() {};
 
     private ClassificationSuggestionJsonCodec() {}
 
@@ -34,6 +35,11 @@ final class ClassificationSuggestionJsonCodec {
 
     static List<String> readStringList(String json) {
         List<String> values = read(json, STRING_LIST);
+        return values == null ? List.of() : values;
+    }
+
+    static List<ReviewReason> readReviewReasonList(String json) {
+        List<ReviewReason> values = read(json, REVIEW_REASON_LIST);
         return values == null ? List.of() : values;
     }
 

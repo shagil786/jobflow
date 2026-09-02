@@ -9,4 +9,7 @@ import org.springframework.stereotype.Repository;
 interface JpaGmailMessageCandidateRepository extends JpaRepository<GmailMessageCandidateEntity, UUID>, GmailMessageCandidateRepository {
     @Override
     Optional<GmailMessageCandidateEntity> findByConnectionIdAndProviderMessageId(UUID connectionId, String providerMessageId);
+
+    @Override
+    Optional<GmailMessageCandidateEntity> findByConnectionIdAndThreadId(UUID connectionId, String threadId);
 }

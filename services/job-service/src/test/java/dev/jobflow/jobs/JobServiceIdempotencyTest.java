@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 @Import(JobService.class)
 class JobServiceIdempotencyTest {
   @Autowired JobService service;
+  @Autowired ApplicationRepository applications;
   @Autowired TimelineEventRepository events;
 
   @Test
@@ -56,5 +57,37 @@ class JobServiceIdempotencyTest {
         .containsExactly("JOB_CAPTURED", "EMAIL_REVIEWED");
     assertThatThrownBy(() -> service.importReviewedMessage("tenant-b", "user-b", request))
         .isInstanceOf(JobService.NotFoundException.class);
+  }
+
+  @Test
+  void laterEmployerRejectionClosesEarlierActiveRecordsAcrossEmailEvents() {
+    var capture = new JobService.CaptureRequest(
+        URI.create("https://jobs.example.test/zuora"), "Software Engineer III", "Zuora",
+        "Software Engineer III", null, "extension", null, "2026-08-01T10:00:00Z");
+    ApplicationEntity captured = service.capture("tenant-a", "user-a", capture, "capture-zuora");
+
+    var interview = new InternalApplicationController.AutoPromoteRequest(
+        "tenant-a", "user-a", "suggestion-interview", "message-interview", "thread-zuora",
+        "INBOUND", "Zuora", "Software Engineer III", "INTERVIEW_INVITATION", null);
+    ApplicationEntity interviewRecord = service.importAutoPromoted("tenant-a", "user-a", interview);
+
+    var rejection = new InternalApplicationController.AutoPromoteRequest(
+        "tenant-a", "user-a", "suggestion-rejection", "message-rejection", "thread-rejection",
+        "INBOUND", "zuora", "Software Engineer III", "REJECTION", null);
+    ApplicationEntity rejectionRecord = service.importAutoPromoted("tenant-a", "user-a", rejection);
+
+    assertThat(applications.findByTenantIdAndUserId("tenant-a", "user-a"))
+        .extracting(ApplicationEntity::getStatus)
+        .containsOnly(ApplicationStatus.REJECTED);
+    assertThat(captured.getStatus()).isEqualTo(ApplicationStatus.REJECTED);
+    assertThat(interviewRecord.getStatus()).isEqualTo(ApplicationStatus.REJECTED);
+    assertThat(rejectionRecord.getStatus()).isEqualTo(ApplicationStatus.REJECTED);
+    assertThat(events.findByTenantIdAndUserIdAndApplicationIdOrderByOccurredAtAsc(
+        "tenant-a", "user-a", captured.getId()))
+        .extracting(TimelineEventEntity::getType)
+        .contains("EMPLOYER_REJECTED");
+
+    ApplicationEntity replay = service.importAutoPromoted("tenant-a", "user-a", rejection);
+    assertThat(replay.getId()).isEqualTo(rejectionRecord.getId());
   }
 }

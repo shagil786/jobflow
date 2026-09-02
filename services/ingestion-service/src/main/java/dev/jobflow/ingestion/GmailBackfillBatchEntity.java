@@ -25,6 +25,13 @@ class GmailBackfillBatchEntity {
     @Column(nullable = false) private int attemptCount;
     @Column(nullable = false) private int importedMessages;
     @Column(nullable = false) private int candidateMessages;
+    @Column(nullable = false) private int metadataSeen;
+    @Column(nullable = false) private int filteredMessages;
+    @Column(nullable = false) private int bodiesFetched;
+    @Column(nullable = false) private int indexedThreads;
+    @Column(nullable = false) private int classifiedThreads;
+    @Column(nullable = false) private int autoPromoted;
+    @Column(nullable = false) private int needsReview;
     @Column(length = 64) private String lastErrorCode;
     @Column(nullable = false) private Instant createdAt;
     @Column(nullable = false) private Instant updatedAt;
@@ -46,4 +53,16 @@ class GmailBackfillBatchEntity {
     void markDeadLettered(String code, Instant now) { status = BackfillBatchStatus.DEAD_LETTERED; lastErrorCode = code; updatedAt = now; }
     int getSequenceNo() { return sequenceNo; }
     BackfillBatchStatus getStatus() { return status; } String getTenantId() { return tenantId; } String getUserId() { return userId; }
+    int getImportedMessages() { return importedMessages; }
+    int getCandidateMessages() { return candidateMessages; }
+    int getMetadataSeen() { return metadataSeen; }
+    int getFilteredMessages() { return filteredMessages; }
+    int getBodiesFetched() { return bodiesFetched; }
+    int getIndexedThreads() { return indexedThreads; }
+    int getClassifiedThreads() { return classifiedThreads; }
+    int getAutoPromoted() { return autoPromoted; }
+    int getNeedsReview() { return needsReview; }
+    void recordProgress(int seen, int imported, int filtered, int candidateCount, Instant now) {
+        metadataSeen = seen; importedMessages = imported; filteredMessages = filtered; candidateMessages = candidateCount; updatedAt = now;
+    }
 }

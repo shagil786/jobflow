@@ -18,19 +18,24 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/internal/v1/gmail")
 class GmailBackfillController {
+    private static final Logger log = LoggerFactory.getLogger(GmailBackfillController.class);
     private final GmailBackfillService backfills;
     private final ClassificationReviewService reviews;
+    private final GmailThreadViewService threads;
     private final String key;
 
-    GmailBackfillController(GmailBackfillService backfills, ClassificationReviewService reviews,
+    GmailBackfillController(GmailBackfillService backfills, ClassificationReviewService reviews, GmailThreadViewService threads,
             @Value("${JOBFLOW_INTERNAL_SERVICE_KEY}") String key) {
         if (key == null || key.isBlank()) throw new IllegalArgumentException("JOBFLOW_INTERNAL_SERVICE_KEY is required");
         this.backfills = backfills;
         this.reviews = reviews;
+        this.threads = threads;
         this.key = key;
     }
 
@@ -80,15 +85,46 @@ class GmailBackfillController {
     @GetMapping("/review-items")
     ReviewItems reviewItems(@RequestHeader("X-Internal-Service-Key") String provided,
             @RequestParam("tenantId") String tenantId, @RequestParam("userId") String userId,
-            @RequestParam(required = false) String cursor,
-            @RequestParam(required = false, defaultValue = "50") int limit) {
+            @RequestParam(value = "cursor", required = false) String cursor,
+            @RequestParam(value = "limit", required = false, defaultValue = "50") int limit) {
         authorize(provided);
         if (limit < 1 || limit > 100) throw new IllegalArgumentException("REVIEW_ITEMS_LIMIT_INVALID");
         List<ClassificationSuggestionRecord> all = reviews.queue(tenantId, userId);
         int offset = parseCursor(cursor, all.size());
         List<ClassificationSuggestionRecord> items = all.stream().skip(offset).limit(limit).toList();
         String nextCursor = offset + items.size() < all.size() ? Integer.toString(offset + items.size()) : null;
-        return new ReviewItems(items, nextCursor);
+        List<String> rejectedCompanies = all.stream()
+                .filter(record -> record.suggestion().intent() == MessageIntent.REJECTION)
+                .map(record -> record.suggestion().company())
+                .filter(candidate -> candidate != null && candidate.value() != null && !candidate.value().isBlank())
+                .map(candidate -> candidate.value().trim())
+                .distinct()
+                .toList();
+        return new ReviewItems(items, nextCursor, rejectedCompanies);
+    }
+
+    @GetMapping("/threads/{threadId}")
+    ThreadView thread(@RequestHeader("X-Internal-Service-Key") String provided,
+            @PathVariable("threadId") String threadId, @RequestParam("tenantId") String tenantId, @RequestParam("userId") String userId) {
+        authorize(provided);
+        try {
+            return new ThreadView(threads.view(tenantId, userId, threadId));
+        } catch (RuntimeException error) {
+            log.warn("Gmail live thread fetch failed thread={} reason={}", threadId, error.getClass().getSimpleName());
+            throw error;
+        }
+    }
+
+    @GetMapping("/messages/{messageId}/thread")
+    ThreadView messageThread(@RequestHeader("X-Internal-Service-Key") String provided,
+            @PathVariable("messageId") String messageId, @RequestParam("tenantId") String tenantId, @RequestParam("userId") String userId) {
+        authorize(provided);
+        try {
+            return new ThreadView(threads.viewFromMessage(tenantId, userId, messageId));
+        } catch (RuntimeException error) {
+            log.warn("Gmail live message thread fetch failed message={} reason={}", messageId, error.getClass().getSimpleName());
+            throw error;
+        }
     }
 
     private static int parseCursor(String cursor, int size) {
@@ -118,5 +154,6 @@ class GmailBackfillController {
     record BackfillHttpRequest(@NotNull UUID connectionId, Instant from, Instant to, BackfillMode mode) {
         BackfillRequest toCommand() { return new BackfillRequest(connectionId, from, to, mode); }
     }
-    record ReviewItems(List<ClassificationSuggestionRecord> items, String nextCursor) {}
+    record ReviewItems(List<ClassificationSuggestionRecord> items, String nextCursor, List<String> rejectedCompanies) {}
+    record ThreadView(GmailThreadViewService.ThreadView thread) {}
 }

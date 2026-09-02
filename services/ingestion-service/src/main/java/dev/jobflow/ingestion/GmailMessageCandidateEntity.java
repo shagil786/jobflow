@@ -19,6 +19,7 @@ class GmailMessageCandidateEntity {
     @Column(nullable = false, length = 120) private String tenantId;
     @Column(nullable = false, length = 120) private String userId;
     @Column(nullable = false, length = 255) private String providerMessageId;
+    @Column(length = 255) private String threadId;
     private UUID runId;
     private UUID batchId;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 32) private State state;
@@ -37,6 +38,7 @@ class GmailMessageCandidateEntity {
         entity.tenantId = message.tenantId();
         entity.userId = message.userId();
         entity.providerMessageId = message.messageId();
+        entity.threadId = message.threadId();
         entity.runId = runId;
         entity.batchId = batchId;
         entity.state = decision.state();
@@ -57,5 +59,6 @@ class GmailMessageCandidateEntity {
 
     UUID getCandidateId() { return candidateId; }
     String getProviderMessageId() { return providerMessageId; }
+    String getThreadId() { return threadId; }
     State getState() { return state; }
 }

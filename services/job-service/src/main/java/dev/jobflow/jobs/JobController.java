@@ -74,8 +74,8 @@ public class JobController {
   }
 
   public record CapturePayload(@NotNull URI url, @NotBlank @Size(max = 240) String title, @Size(max = 240) String company, @NotBlank @Size(max = 240) String role, @Size(max = 240) String location, @NotBlank @Size(max = 80) String source, @Size(max = 2_000) String descriptionPreview, @NotBlank @Size(max = 40) String capturedAt) {}
-  public record ApplicationResponse(UUID id, String company, String role, String jobUrl, String source, String location, String captureTitle, String descriptionPreview, Instant capturedAt, ApplicationStatus status, Instant updatedAt) {
-    static ApplicationResponse from(ApplicationEntity entity) { return new ApplicationResponse(entity.getId(), entity.getCompany(), entity.getRole(), entity.getJobUrl(), entity.getSource(), entity.getLocation(), entity.getCaptureTitle(), entity.getDescriptionPreview(), entity.getCapturedAt(), entity.getStatus(), entity.getUpdatedAt()); }
+  public record ApplicationResponse(UUID id, String company, String role, String jobUrl, String source, String location, String captureTitle, String descriptionPreview, Instant capturedAt, ApplicationStatus status, Instant updatedAt, String sourceThreadId, String sourceMessageId, String sourceDirection) {
+    static ApplicationResponse from(ApplicationEntity entity) { return new ApplicationResponse(entity.getId(), entity.getCompany(), entity.getRole(), entity.getJobUrl(), entity.getSource(), entity.getLocation(), entity.getCaptureTitle(), entity.getDescriptionPreview(), entity.getCapturedAt(), entity.getStatus(), entity.getUpdatedAt(), entity.getSourceThreadId(), entity.getSourceMessageId(), entity.getSourceDirection()); }
   }
   public record TimelineResponse(UUID id, String type, String summary, Instant occurredAt) {}
 }

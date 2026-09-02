@@ -47,7 +47,10 @@ public class GmailConnectionService {
 
     @Transactional(readOnly = true)
     public GmailConnectionStatus status(String tenantId, String userId) {
+        // Recover legacy connections that were persisted before the active-mailbox flag
+        // was introduced. They are still owner-scoped and have valid encrypted credentials.
         return store.findActiveByOwner(tenantId, userId)
+                .or(() -> store.findByOwner(tenantId, userId))
                 .map(connection -> new GmailConnectionStatus(connection.connectionId(), true, connection.email(), connection.connectedAt()))
                 .orElse(new GmailConnectionStatus(null, false, null, null));
     }

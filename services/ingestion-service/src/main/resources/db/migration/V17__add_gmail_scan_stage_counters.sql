@@ -1,0 +1,10 @@
+alter table gmail_backfill_runs add column if not exists metadata_seen integer not null default 0;
+alter table gmail_backfill_runs add column if not exists filtered_out integer not null default 0;
+alter table gmail_backfill_runs add column if not exists candidates integer not null default 0;
+alter table gmail_backfill_runs add column if not exists bodies_fetched integer not null default 0;
+alter table gmail_backfill_runs add column if not exists indexed_threads integer not null default 0;
+alter table gmail_backfill_runs add column if not exists classified_threads integer not null default 0;
+alter table gmail_backfill_runs add column if not exists auto_promoted integer not null default 0;
+alter table gmail_backfill_runs add column if not exists needs_review integer not null default 0;
+alter table gmail_backfill_batches add column if not exists metadata_seen integer not null default 0;
+alter table gmail_backfill_batches add column if not exists filtered_messages integer not null default 0;

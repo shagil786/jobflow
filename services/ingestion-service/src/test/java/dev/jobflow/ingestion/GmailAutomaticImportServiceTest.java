@@ -10,10 +10,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 class GmailAutomaticImportServiceTest {
     @Test
-    void importsAllMetadataInTheWindowAndPersistsOnlyJobCandidates() {
+    void focusedImportPersistsOnlyHighRecallCandidates() {
         UUID connectionId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         InMemoryConnections connections = new InMemoryConnections(connectionId);
@@ -22,6 +24,7 @@ class GmailAutomaticImportServiceTest {
         InMemoryCandidates candidates = new InMemoryCandidates();
         InMemoryBatchRepository batches = new InMemoryBatchRepository(batchId, connectionId);
         FakeGmail gmail = new FakeGmail();
+        GmailClassificationService classification = mock(GmailClassificationService.class);
         gmail.pages.add(new GmailApiClient.MessagePage(
                 List.of(new GmailApiClient.MessageRef("job-1", "thread-1"), new GmailApiClient.MessageRef("promo-1", "thread-2")),
                 null, null));
@@ -29,18 +32,19 @@ class GmailAutomaticImportServiceTest {
         gmail.metadata.put("promo-1", safe("promo-1", "thread-2", "Newsletter <news@retail.example>", "Weekly jobs newsletter - unsubscribe"));
 
         GmailAutomaticImportService service = new GmailAutomaticImportService(
-                batches, connections, new Cipher(), gmail, messages, threads, candidates, new GmailCandidateFilter());
+                batches, connections, new Cipher(), gmail, messages, threads, candidates, new GmailCandidateFilter(), Optional.of(classification));
 
         GmailAutomaticImportService.ImportBatchResult result = service.importBatch(batchId);
 
-        assertThat(result.importedMessages()).isEqualTo(2);
+        assertThat(result.importedMessages()).isEqualTo(1);
         assertThat(result.candidateMessages()).isEqualTo(1);
         assertThat(result.query()).contains("after:", "before:");
-        assertThat(messages.values).hasSize(2);
-        assertThat(threads.threadIds).containsExactly("thread-1", "thread-2");
+        assertThat(messages.values).hasSize(1);
+        assertThat(threads.threadIds).containsExactly("thread-1");
         assertThat(candidates.values).hasSize(1);
-        assertThat(batches.imported).isEqualTo(2);
+        assertThat(batches.imported).isEqualTo(1);
         assertThat(batches.candidateCount).isEqualTo(1);
+        verify(classification).classify(connectionId, "job-1");
     }
 
     @Test

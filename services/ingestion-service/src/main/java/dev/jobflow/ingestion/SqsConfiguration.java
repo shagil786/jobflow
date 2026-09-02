@@ -28,8 +28,8 @@ public class SqsConfiguration {
             SqsClient client,
             @Value("${JOBFLOW_SQS_BACKFILL_QUEUE_URL:}") String queueUrl,
             @Value("${JOBFLOW_SQS_BACKFILL_DLQ_URL:}") String deadLetterQueueUrl,
-            @Value("${JOBFLOW_SQS_VISIBILITY_TIMEOUT_SECONDS:60}") long visibilityTimeoutSeconds,
-            @Value("${JOBFLOW_SQS_MAX_MESSAGES:10}") int maxMessages) {
+            @Value("${JOBFLOW_SQS_VISIBILITY_TIMEOUT_SECONDS:900}") long visibilityTimeoutSeconds,
+            @Value("${JOBFLOW_SQS_MAX_MESSAGES:1}") int maxMessages) {
         if (queueUrl.isBlank()) throw new IllegalStateException("JOBFLOW_SQS_BACKFILL_QUEUE_URL is required when SQS is enabled");
         return new SqsBackfillQueue(client, queueUrl, deadLetterQueueUrl, Duration.ofSeconds(visibilityTimeoutSeconds), maxMessages);
     }

@@ -1,8 +1,11 @@
 package dev.jobflow.ingestion;
 
 import java.util.UUID;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 final class GmailBackfillBatchProcessor implements SqsBackfillWorker.BatchProcessor {
+    private static final Logger log = LoggerFactory.getLogger(GmailBackfillBatchProcessor.class);
     private final GmailAutomaticImportService importer;
 
     GmailBackfillBatchProcessor(GmailAutomaticImportService importer) { this.importer = importer; }
@@ -14,7 +17,8 @@ final class GmailBackfillBatchProcessor implements SqsBackfillWorker.BatchProces
         } catch (GmailFetchException exception) {
             throw new SqsBackfillWorker.RetryableBatchException("GMAIL_FETCH_FAILED");
         } catch (RuntimeException exception) {
-            throw new SqsBackfillWorker.NonRetryableBatchException("GMAIL_BACKFILL_BATCH_FAILED");
+            log.error("Gmail backfill batch failed batchId={} runId={}", payload.batchId(), payload.runId(), exception);
+            throw new SqsBackfillWorker.NonRetryableBatchException("GMAIL_BACKFILL_BATCH_FAILED", exception);
         }
     }
 }

@@ -23,6 +23,7 @@ class GmailBackfillControllerTest {
     @Autowired private MockMvc mvc;
     @MockBean private GmailBackfillService service;
     @MockBean private ClassificationReviewService reviews;
+    @MockBean private GmailThreadViewService threadView;
 
     private static final UUID CONNECTION_ID = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID RUN_ID = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");

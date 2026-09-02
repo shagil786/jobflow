@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.time.Duration;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -19,6 +20,8 @@ import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.RestClientException;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+import java.net.http.HttpClient;
 
 @Component
 public class RestGmailApiClient implements GmailApiClient {
@@ -45,7 +48,15 @@ public class RestGmailApiClient implements GmailApiClient {
     @org.springframework.beans.factory.annotation.Autowired
     public RestGmailApiClient(@org.springframework.beans.factory.annotation.Value("${GMAIL_CLIENT_ID}") String clientId,
                               @org.springframework.beans.factory.annotation.Value("${GMAIL_CLIENT_SECRET}") String clientSecret) {
-        this(RestClient.builder().build(), DEFAULT_TOKEN_ENDPOINT, DEFAULT_GMAIL_ENDPOINT, clientId, clientSecret);
+        this(timeoutConfiguredClient(), DEFAULT_TOKEN_ENDPOINT, DEFAULT_GMAIL_ENDPOINT, clientId, clientSecret);
+    }
+
+    private static RestClient timeoutConfiguredClient() {
+        var factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build());
+        factory.setReadTimeout(Duration.ofSeconds(30));
+        return RestClient.builder().requestFactory(factory).build();
     }
 
     RestGmailApiClient(RestClient client, String tokenEndpoint, String gmailEndpoint, String clientId, String clientSecret) {
@@ -66,6 +77,17 @@ public class RestGmailApiClient implements GmailApiClient {
         } catch (RestClientException e) {
             throw new GmailFetchException(e);
         }
+    }
+
+    @Override public String createDraft(String accessToken, String recipient, String subject, String body) {
+        try {
+            String mime = "To: " + recipient + "\r\nSubject: " + subject + "\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" + body;
+            String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(mime.getBytes(StandardCharsets.UTF_8));
+            var payload = Map.of("message", Map.of("raw", raw));
+            DraftResponse response = client.post().uri(gmailEndpoint + "/drafts").contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + accessToken).body(payload).retrieve().body(DraftResponse.class);
+            if (response == null || response.id == null || response.id.isBlank()) throw new GmailFetchException(new IllegalStateException("Gmail draft id was not returned"));
+            return response.id;
+        } catch (RestClientException e) { throw new GmailFetchException(e); }
     }
 
     @Override public String currentHistoryId(String accessToken) {
@@ -144,6 +166,34 @@ public class RestGmailApiClient implements GmailApiClient {
         } catch (RestClientException e) {
             throw new GmailFetchException(e);
         }
+    }
+
+    @Override
+    public List<SafeGmailMessage> fetchThreadForViewing(String accessToken, String threadId) {
+        try {
+            ThreadDetailResponse response = client.get()
+                    .uri(UriComponentsBuilder.fromUriString(gmailEndpoint + "/threads/" + threadId)
+                            .queryParam("format", "full").build(true).toUri())
+                    .header("Authorization", "Bearer " + accessToken)
+                    .retrieve().body(ThreadDetailResponse.class);
+            if (response == null || response.messages == null) return List.of();
+            return response.messages.stream().map(this::toSafeThreadMessage).limit(50).toList();
+        } catch (RestClientResponseException e) { throw new GmailFetchException(e); }
+        catch (RestClientException e) { throw new GmailFetchException(e); }
+    }
+
+    private SafeGmailMessage toSafeThreadMessage(MessageDetailResponse response) {
+        if (response == null || response.id == null || response.id.isBlank()) {
+            throw new GmailFetchException(new IllegalStateException("Gmail thread message was not returned"));
+        }
+        Map<String, String> headers = extractHeaders(response.payload);
+        CollectedContent content = new CollectedContent();
+        try { collectTextParts(response.payload, content); }
+        catch (IllegalStateException e) { throw new GmailFetchException(e); }
+        String displayText = content.displayText();
+        return new SafeGmailMessage(response.id, response.threadId, headers.get("from"), headers.get("reply-to"),
+                parseRecipients(headers.get("to"), headers.get("cc")), headers.get("subject"), parseInstant(headers.get("date")),
+                response.labelIds == null ? List.of() : response.labelIds, displayText, sha256(displayText));
     }
 
     private URI messageUri(String messageId, String format, boolean metadataOnly) {
@@ -298,6 +348,23 @@ public class RestGmailApiClient implements GmailApiClient {
         return value == null ? "" : value.replaceAll("\\s+", " ").trim();
     }
 
+    private static String preserveDisplayWhitespace(String value) {
+        if (value == null) return "";
+        return value.replace("\r\n", "\n").replace('\r', '\n')
+                .replaceAll("[\\t ]+", " ")
+                .replaceAll("\\n{3,}", "\\n\\n")
+                .trim();
+    }
+
+    private static String sanitizeHtmlForDisplay(String html) {
+        String withoutScripts = html.replaceAll("(?is)<script.*?>.*?</script>", " ")
+                .replaceAll("(?is)<style.*?>.*?</style>", " ")
+                .replaceAll("(?i)<br\\s*/?>", "\\n")
+                .replaceAll("(?i)</(p|div|li|tr|td|th|h1|h2|h3|h4|h5|h6)>", "\\n")
+                .replaceAll("(?s)<[^>]+>", " ");
+        return preserveDisplayWhitespace(HtmlUtils.htmlUnescape(withoutScripts));
+    }
+
     private static String sha256(String value) {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
@@ -314,6 +381,8 @@ public class RestGmailApiClient implements GmailApiClient {
     private static final class CollectedContent {
         private final StringBuilder plainText = new StringBuilder();
         private final StringBuilder htmlText = new StringBuilder();
+        private final StringBuilder plainDisplayText = new StringBuilder();
+        private final StringBuilder htmlDisplayText = new StringBuilder();
         private int decodedBytes;
 
         void add(String mimeType, String decoded) {
@@ -323,14 +392,21 @@ public class RestGmailApiClient implements GmailApiClient {
             }
             if (mimeType != null && mimeType.toLowerCase(Locale.ROOT).startsWith("text/plain")) {
                 append(plainText, normalizeWhitespace(decoded));
+                appendDisplay(plainDisplayText, preserveDisplayWhitespace(decoded));
             } else {
                 append(htmlText, sanitizeHtml(decoded));
+                appendDisplay(htmlDisplayText, sanitizeHtmlForDisplay(decoded));
             }
         }
 
         String normalizedText() {
             String value = plainText.length() > 0 ? plainText.toString() : htmlText.toString();
             return normalizeWhitespace(value);
+        }
+
+        String displayText() {
+            String value = plainDisplayText.length() > 0 ? plainDisplayText.toString() : htmlDisplayText.toString();
+            return preserveDisplayWhitespace(value);
         }
 
         private static void append(StringBuilder target, String value) {
@@ -342,15 +418,23 @@ public class RestGmailApiClient implements GmailApiClient {
             }
             target.append(value);
         }
+
+        private static void appendDisplay(StringBuilder target, String value) {
+            if (value == null || value.isBlank()) return;
+            if (target.length() > 0) target.append("\\n\\n");
+            target.append(value);
+        }
     }
 
     private static final class TokenResponse { public String access_token; public Long expires_in; }
+    private static final class DraftResponse { public String id; }
     private static final class ProfileResponse { public String historyId; }
     private static final class LabelListResponse { public List<LabelDto> labels; }
     private static final class LabelDto { public String id; public String name; }
     private static final class MessageListResponse { public List<MessageDto> messages; public String nextPageToken; public Integer resultSizeEstimate; }
     private static final class MessageDto { public String id; public String threadId; }
     private static final class MessageDetailResponse { public String id; public String threadId; public List<String> labelIds; public PayloadDto payload; }
+    private static final class ThreadDetailResponse { public String id; public String historyId; public List<MessageDetailResponse> messages; }
     private static final class PayloadDto { public String mimeType; public String filename; public BodyDto body; public List<HeaderDto> headers; public List<PayloadDto> parts; }
     private static final class BodyDto { public String data; public String attachmentId; }
     private static final class HeaderDto { public String name; public String value; }

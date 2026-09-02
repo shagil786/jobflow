@@ -31,7 +31,7 @@ public class GmailMessageEntity {
     @Column(length = 320)
     private String replyTo;
 
-    @Column(length = 2048)
+    @Column(length = 16384)
     private String recipients;
 
     @Column(length = 1024)

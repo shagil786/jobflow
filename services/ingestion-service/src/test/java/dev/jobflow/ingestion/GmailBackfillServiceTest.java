@@ -82,7 +82,7 @@ class GmailBackfillServiceTest {
     }
 
     @Test
-    void rejectsConnectionOwnedByAnotherTenantAndSecondActiveRun() {
+    void rejectsConnectionOwnedByAnotherTenantAndReattachesToSecondActiveRun() {
         when(connections.find(connectionId)).thenReturn(Optional.of(new StoredGmailConnection(
                 connectionId, "other-user", "other-tenant", "person@example.com", "encrypted", "history", null, now, true)));
         assertThatThrownBy(() -> service.start(new BackfillRequest(connectionId, now.minusSeconds(100), now, BackfillMode.AUTOMATIC),
@@ -91,11 +91,15 @@ class GmailBackfillServiceTest {
 
         when(connections.find(connectionId)).thenReturn(Optional.of(new StoredGmailConnection(
                 connectionId, "user-1", "tenant-1", "person@example.com", "encrypted", "history", null, now, true)));
-        when(runs.findActiveByTenantIdAndUserId("tenant-1", "user-1")).thenReturn(Optional.of(GmailBackfillRunEntity.queued(
+        GmailBackfillRunEntity active = GmailBackfillRunEntity.queued(
                 UUID.randomUUID(), "tenant-1", "user-1", connectionId, "other-idem", BackfillMode.AUTOMATIC,
-                now.minusSeconds(100), now, 7, "corr", now)));
-        assertThatThrownBy(() -> service.start(new BackfillRequest(connectionId, now.minusSeconds(100), now, BackfillMode.AUTOMATIC),
-                new BackfillOwnerContext("tenant-1", "user-1"), "idem-1"))
-                .isInstanceOf(IllegalStateException.class).hasMessage("GMAIL_BACKFILL_ALREADY_ACTIVE");
+                now.minusSeconds(100), now, 7, "corr", now);
+        active.setTotalBatches(7);
+        when(runs.findActiveByTenantIdAndUserId("tenant-1", "user-1")).thenReturn(Optional.of(active));
+        BackfillRunRecord record = service.start(new BackfillRequest(connectionId, now.minusSeconds(100), now, BackfillMode.AUTOMATIC),
+                new BackfillOwnerContext("tenant-1", "user-1"), "idem-1");
+        assertThat(record.runId()).isEqualTo(active.getRunId());
+        assertThat(record.status()).isEqualTo(BackfillRunStatus.RUNNING);
+        verify(batches, never()).saveAll(any());
     }
 }

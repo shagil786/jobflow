@@ -95,6 +95,18 @@ class GmailConnectionServiceTest {
         assertThat(service.status("tenant-1", "user-1").email()).isEqualTo("second@gmail.com");
     }
 
+    @Test
+    void recoversAnOwnerConnectionWhenTheLegacyActiveFlagIsFalse() {
+        InMemoryGmailConnectionStore store = new InMemoryGmailConnectionStore();
+        GmailConnectionService service = new GmailConnectionService(store, new TestCipher(), Clock.fixed(NOW, ZoneOffset.UTC));
+        UUID connectionId = UUID.randomUUID();
+        store.save(new StoredGmailConnection(connectionId, "user-1", "tenant-1", "gmail-user@example.com",
+                "encrypted:refresh", "history-1", null, NOW, false));
+
+        assertThat(service.status("tenant-1", "user-1").connectionId()).isEqualTo(connectionId);
+        assertThat(service.status("tenant-1", "user-1").connected()).isTrue();
+    }
+
     private static final class TestCipher implements GmailTokenCipher {
         @Override public String encrypt(String value) { return "encrypted:" + value; }
         @Override public String decrypt(String value) { return value.substring("encrypted:".length()); }

@@ -32,7 +32,22 @@ public final class SqsBackfillWorker {
     }
 
     public void process(BackfillQueue.QueuedBatch batch) {
-        lifecycle.claim(batch.payload());
+        try {
+            if (!lifecycle.claim(batch.payload())) {
+                // Duplicate delivery after a terminal transition is safe to drop.
+                queue.acknowledge(batch.receipt());
+                return;
+            }
+        } catch (IllegalArgumentException exception) {
+            // A deployment or local reset can leave an already-published message
+            // whose database batch was deleted. Drop only that known-stale delivery;
+            // unrelated lifecycle failures must still surface for diagnosis.
+            if ("GMAIL_BACKFILL_BATCH_NOT_FOUND".equals(exception.getMessage())) {
+                queue.acknowledge(batch.receipt());
+                return;
+            }
+            throw exception;
+        }
         try {
             processor.process(batch.payload());
             lifecycle.succeeded(batch.payload());
@@ -58,7 +73,7 @@ public final class SqsBackfillWorker {
     }
 
     public interface BatchLifecycle {
-        void claim(BackfillQueue.BatchPayload payload);
+        boolean claim(BackfillQueue.BatchPayload payload);
 
         void succeeded(BackfillQueue.BatchPayload payload);
 
@@ -85,6 +100,11 @@ public final class SqsBackfillWorker {
 
         public NonRetryableBatchException(String code) {
             super(code);
+            this.code = code;
+        }
+
+        public NonRetryableBatchException(String code, Throwable cause) {
+            super(code, cause);
             this.code = code;
         }
 

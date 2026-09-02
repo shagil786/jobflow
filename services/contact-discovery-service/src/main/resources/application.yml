@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: contact-discovery-service
+  datasource:
+    url: ${JOBFLOW_CONTACT_DB_URL:jdbc:h2:file:./data/jobflow-contacts;AUTO_SERVER=TRUE}
+    username: ${JOBFLOW_CONTACT_DB_USERNAME:sa}
+    password: ${JOBFLOW_CONTACT_DB_PASSWORD:}
+    driver-class-name: ${JOBFLOW_CONTACT_DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: ${JOBFLOW_CONTACT_DDL_AUTO:validate}
+    open-in-view: false
+  flyway:
+    enabled: true
+server:
+  port: ${JOBFLOW_CONTACT_PORT:8093}
+  error:
+    include-message: never
+jobflow:
+  providers:
+    apollo:
+      enabled: ${JOBFLOW_APOLLO_ENABLED:false}
+    hunter:
+      enabled: ${JOBFLOW_HUNTER_ENABLED:false}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

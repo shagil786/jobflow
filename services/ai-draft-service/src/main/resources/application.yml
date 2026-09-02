@@ -1,0 +1,29 @@
+spring:
+  application:
+    name: ai-draft-service
+  datasource:
+    url: ${JOBFLOW_DRAFT_DB_URL:jdbc:h2:file:./data/jobflow-drafts;AUTO_SERVER=TRUE}
+    username: ${JOBFLOW_DRAFT_DB_USERNAME:sa}
+    password: ${JOBFLOW_DRAFT_DB_PASSWORD:}
+    driver-class-name: ${JOBFLOW_DRAFT_DB_DRIVER:org.h2.Driver}
+  jpa:
+    hibernate:
+      ddl-auto: ${JOBFLOW_DRAFT_DDL_AUTO:validate}
+    open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JOBFLOW_OIDC_ISSUER_URI:http://localhost:8080/realms/jobflow}
+server:
+  port: ${JOBFLOW_DRAFT_PORT:8086}
+  error:
+    include-message: never
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

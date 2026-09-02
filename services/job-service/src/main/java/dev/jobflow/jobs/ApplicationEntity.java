@@ -31,6 +31,9 @@ public class ApplicationEntity {
   @Column(name = "captured_at", nullable = false) private Instant capturedAt;
   @Column(length = 80) private String source;
   @Column(length = 240) private String location;
+  @Column(name = "source_thread_id", length = 255) private String sourceThreadId;
+  @Column(name = "source_message_id", length = 255) private String sourceMessageId;
+  @Column(name = "source_direction", length = 16) private String sourceDirection;
   @Enumerated(EnumType.STRING) @Column(nullable = false, length = 32) private ApplicationStatus status = ApplicationStatus.CAPTURED;
   @Column(name = "applied_date") private LocalDate appliedDate;
   @Column(name = "next_follow_up_date") private LocalDate nextFollowUpDate;
@@ -64,6 +67,12 @@ public class ApplicationEntity {
   public void setSource(String source) { this.source = source; }
   public String getLocation() { return location; }
   public void setLocation(String location) { this.location = location; }
+  public String getSourceThreadId() { return sourceThreadId; }
+  public void setSourceThreadId(String sourceThreadId) { this.sourceThreadId = sourceThreadId; }
+  public String getSourceMessageId() { return sourceMessageId; }
+  public void setSourceMessageId(String sourceMessageId) { this.sourceMessageId = sourceMessageId; }
+  public String getSourceDirection() { return sourceDirection; }
+  public void setSourceDirection(String sourceDirection) { this.sourceDirection = sourceDirection; }
   public ApplicationStatus getStatus() { return status; }
   public void setStatus(ApplicationStatus status) { this.status = status; }
   public LocalDate getAppliedDate() { return appliedDate; }

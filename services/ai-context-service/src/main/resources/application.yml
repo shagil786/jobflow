@@ -1,0 +1,34 @@
+spring:
+  application:
+    name: ai-context-service
+  datasource:
+    url: ${JOBFLOW_CONTEXT_DB_URL:jdbc:postgresql://localhost:5432/jobflow_context}
+    username: ${JOBFLOW_CONTEXT_DB_USERNAME:jobflow}
+    password: ${JOBFLOW_CONTEXT_DB_PASSWORD:jobflow}
+  flyway:
+    enabled: ${JOBFLOW_CONTEXT_FLYWAY_ENABLED:true}
+  jdbc:
+    template:
+      query-timeout: ${JOBFLOW_CONTEXT_QUERY_TIMEOUT_SECONDS:5}
+server:
+  port: ${JOBFLOW_CONTEXT_PORT:8084}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+jobflow:
+  context:
+    embedding-dimensions: ${JOBFLOW_EMBEDDING_DIMENSIONS:1536}
+    max-chunks: ${JOBFLOW_CONTEXT_MAX_CHUNKS:12}
+    max-tokens: ${JOBFLOW_CONTEXT_MAX_TOKENS:6000}
+    vector-weight: ${JOBFLOW_CONTEXT_VECTOR_WEIGHT:0.65}
+    keyword-weight: ${JOBFLOW_CONTEXT_KEYWORD_WEIGHT:0.35}
+azure:
+  openai:
+    endpoint: ${AZURE_OPENAI_ENDPOINT:}
+    embedding-deployment: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:}
+    deployment: ${AZURE_OPENAI_DEPLOYMENT:}
+    api-version: ${AZURE_OPENAI_API_VERSION:}
+    key-vault-uri: ${AZURE_OPENAI_KEY_VAULT_URI:}
+    key-secret-name: ${AZURE_OPENAI_KEY_SECRET_NAME:azure-openai-key}

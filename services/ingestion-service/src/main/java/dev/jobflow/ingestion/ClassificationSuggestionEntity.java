@@ -77,6 +77,9 @@ public class ClassificationSuggestionEntity {
     private String contradictionsJson;
 
     @Column(nullable = false)
+    private String reviewReasonsJson;
+
+    @Column(nullable = false)
     private Instant createdAt;
 
     protected ClassificationSuggestionEntity() {}
@@ -106,6 +109,7 @@ public class ClassificationSuggestionEntity {
         evidenceJson = ClassificationSuggestionJsonCodec.write(suggestion.evidence());
         missingFieldsJson = ClassificationSuggestionJsonCodec.write(suggestion.missingFields());
         contradictionsJson = ClassificationSuggestionJsonCodec.write(suggestion.contradictions());
+        reviewReasonsJson = ClassificationSuggestionJsonCodec.write(suggestion.reviewReasons());
     }
 
     boolean hasSameOwner(UUID connectionId, String tenantId, String userId) {
@@ -133,7 +137,8 @@ public class ClassificationSuggestionEntity {
                 ClassificationSuggestionJsonCodec.readStringList(contradictionsJson),
                 requiresReview,
                 classifierVersion,
-                contentHash);
+                contentHash,
+                ClassificationSuggestionJsonCodec.readReviewReasonList(reviewReasonsJson));
         return new ClassificationSuggestionRecord(connectionId, suggestion);
     }
 
@@ -207,7 +212,8 @@ public class ClassificationSuggestionEntity {
                 suggestion.contradictions(),
                 suggestion.requiresReview(),
                 suggestion.classifierVersion(),
-                suggestion.contentHash());
+                suggestion.contentHash(),
+                suggestion.reviewReasons());
     }
 
     private static ExtractedFieldCandidateV1<String> sanitizeCandidate(ExtractedFieldCandidateV1<String> candidate) {

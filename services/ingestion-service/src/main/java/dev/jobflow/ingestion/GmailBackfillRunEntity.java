@@ -26,6 +26,14 @@ class GmailBackfillRunEntity {
     @Column(nullable = false) private int completedBatches;
     @Column(nullable = false) private int failedBatches;
     @Column(nullable = false) private int importedMessages;
+    @Column(nullable = false) private int metadataSeen;
+    @Column(nullable = false) private int filteredOut;
+    @Column(nullable = false) private int candidates;
+    @Column(nullable = false) private int bodiesFetched;
+    @Column(nullable = false) private int indexedThreads;
+    @Column(nullable = false) private int classifiedThreads;
+    @Column(nullable = false) private int autoPromoted;
+    @Column(nullable = false) private int needsReview;
     @Column(nullable = false, length = 255) private String correlationId;
     @Column(nullable = false) private Instant createdAt;
     @Column(nullable = false) private Instant updatedAt;
@@ -50,8 +58,13 @@ class GmailBackfillRunEntity {
         if (status.terminal()) throw new IllegalStateException("GMAIL_BACKFILL_TERMINAL");
         status = next; activeOwnerKey = next.terminal() ? runId.toString() : "ACTIVE"; updatedAt = now;
     }
-    void setCounters(int completed, int failed, int imported, Instant now) { completedBatches = completed; failedBatches = failed; importedMessages = imported; updatedAt = now; }
-    BackfillRunRecord toRecord() { return new BackfillRunRecord(runId, tenantId, userId, connectionId, mode, status, requestedFrom, requestedTo, totalBatches, completedBatches, failedBatches, importedMessages); }
+    void setCounters(int completed, int failed, int imported, int metadata, int filtered, int candidateCount,
+            int bodies, int indexed, int classified, int promoted, int review, Instant now) {
+        completedBatches = completed; failedBatches = failed; importedMessages = imported; metadataSeen = metadata;
+        filteredOut = filtered; candidates = candidateCount; bodiesFetched = bodies; indexedThreads = indexed;
+        classifiedThreads = classified; autoPromoted = promoted; needsReview = review; updatedAt = now;
+    }
+    BackfillRunRecord toRecord() { return new BackfillRunRecord(runId, tenantId, userId, connectionId, mode, status, requestedFrom, requestedTo, totalBatches, completedBatches, failedBatches, importedMessages, metadataSeen, filteredOut, candidates, bodiesFetched, indexedThreads, classifiedThreads, autoPromoted, needsReview); }
     UUID getRunId() { return runId; } String getTenantId() { return tenantId; } String getUserId() { return userId; }
     UUID getConnectionId() { return connectionId; } String getIdempotencyKey() { return idempotencyKey; }
     BackfillRunStatus getStatus() { return status; } BackfillMode getMode() { return mode; }
@@ -59,4 +72,7 @@ class GmailBackfillRunEntity {
     int getBatchSizeDays() { return batchSizeDays; } int getTotalBatches() { return totalBatches; }
     int getCompletedBatches() { return completedBatches; } int getFailedBatches() { return failedBatches; }
     int getImportedMessages() { return importedMessages; } String getCorrelationId() { return correlationId; }
+    int getMetadataSeen() { return metadataSeen; } int getFilteredOut() { return filteredOut; } int getCandidates() { return candidates; }
+    int getBodiesFetched() { return bodiesFetched; } int getIndexedThreads() { return indexedThreads; }
+    int getClassifiedThreads() { return classifiedThreads; } int getAutoPromoted() { return autoPromoted; } int getNeedsReview() { return needsReview; }
 }

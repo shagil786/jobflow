@@ -64,9 +64,6 @@ public class ProviderNeutralClassifier implements MessageIntentClassifier {
                 || !evidence.threadId().equals(suggestion.threadId())) {
             throw new ClassifierProviderException("classifier output ownership or message identity mismatch");
         }
-        if (!suggestion.requiresReview()) {
-            throw new ClassifierProviderException("classifier output must require human review");
-        }
         if (suggestion.confidence() < 0 || suggestion.confidence() > 1) {
             throw new ClassifierProviderException("classifier confidence is outside [0,1]");
         }

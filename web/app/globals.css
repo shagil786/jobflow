@@ -16,6 +16,7 @@
 }
 
 * { box-sizing: border-box; }
+html, body { max-width: 100%; overflow-x: hidden; }
 html { background: var(--paper); }
 body { margin: 0; color: var(--ink); background: var(--paper); font-family: Arial, Helvetica, sans-serif; }
 button, input, textarea { font: inherit; }
@@ -90,6 +91,11 @@ h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; line-height: 1; 
 .action-title:hover { color: var(--forest); }
 .action-meta { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--muted); font-size: 12px; margin-top: 7px; }
 .action-meta strong { color: #46574d; font-weight: 700; }
+.action-direction { display: inline-flex; align-items: center; border-radius: 999px; padding: 2px 7px; font-size: 10px; font-weight: 800; letter-spacing: .02em; }
+.action-direction.inbound { color: #245d43; background: #e1f3e7; }
+.action-direction.outbound { color: #76531f; background: #f8ecd1; }
+.thread-modal { width: min(720px, calc(100vw - 32px)); }
+.thread-modal .modal-body { max-height: min(65vh, 620px); overflow-y: auto; }
 .action-type { display: inline-flex; align-items: center; gap: 4px; color: var(--amber); background: var(--amber-soft); border-radius: 5px; padding: 4px 6px; font-size: 10px; font-weight: 800; white-space: nowrap; }
 .action-type.blue { color: var(--blue); background: var(--blue-soft); }
 .action-type.green { color: var(--forest); background: var(--mint); }
@@ -107,12 +113,12 @@ h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; line-height: 1; 
 .review-edit label { display: grid; gap: 4px; color: var(--muted); font-size: 11px; }
 .review-edit input { width: 150px; padding: 7px 8px; border: 1px solid var(--line); border-radius: 6px; font: inherit; }
 @media (max-width: 600px) { .review-row { display: grid; } .review-actions { justify-content: end; } }
-.review-list { padding: 0 21px 20px; display: grid; gap: 10px; }
+.review-list { min-width: 0; padding: 0 21px 20px; display: grid; gap: 10px; }
 .review-item { border: 1px solid var(--line); border-radius: 11px; padding: 13px; }
-.review-top { display: flex; justify-content: space-between; gap: 8px; }
-.review-name { font-weight: 800; font-size: 13px; }
+.review-top { display: flex; min-width: 0; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.review-name { min-width: 0; overflow-wrap: anywhere; font-weight: 800; font-size: 13px; }
 .confidence { color: var(--amber); font-size: 10px; font-weight: 800; }
-.review-role { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.review-role { color: var(--muted); font-size: 11px; margin-top: 4px; overflow-wrap: anywhere; }
 .evidence { margin: 10px 0; color: #4b5d52; font-size: 11px; line-height: 1.45; padding-left: 9px; border-left: 2px solid #b8d7c1; }
 .review-actions { display: flex; gap: 7px; }
 .review-actions button { flex: 1; border-radius: 7px; padding: 7px; font-size: 11px; }
@@ -192,7 +198,8 @@ h1 { font-size: clamp(28px, 4vw, 40px); letter-spacing: -.05em; line-height: 1; 
 body { background: radial-gradient(circle at 68% 0%, #ffffff 0, var(--paper) 38rem); letter-spacing: -.01em; }
 .main { animation: page-enter .55s cubic-bezier(.22, 1, .36, 1) both; }
 .app-shell { grid-template-columns: 252px minmax(0, 1fr); }
-.sidebar { position: sticky; top: 0; align-self: start; height: 100vh; max-height: 100vh; overflow-y: auto; overflow-x: hidden; background: linear-gradient(160deg, #123c2d 0%, #0c2b21 100%); padding: 30px 19px 22px; }
+.app-shell { height: 100vh; min-height: 100vh; overflow: hidden; }
+.sidebar { position: relative; align-self: stretch; height: 100vh; max-height: 100vh; overflow: clip; background: linear-gradient(160deg, #123c2d 0%, #0c2b21 100%); padding: 30px 19px 22px; }
 .sidebar::before { content: ""; position: absolute; width: 180px; height: 180px; right: -105px; top: 150px; border: 1px solid rgba(200, 244, 215, .13); border-radius: 50%; box-shadow: 0 0 0 28px rgba(200, 244, 215, .035), 0 0 0 56px rgba(200, 244, 215, .025); pointer-events: none; }
 .brand { position: relative; z-index: 1; padding: 0 10px; }
 .brand-mark { width: 34px; height: 34px; border-radius: 11px; background: #bff1cc; box-shadow: 0 7px 18px rgba(126, 235, 159, .15); }
@@ -215,6 +222,13 @@ body { background: radial-gradient(circle at 68% 0%, #ffffff 0, var(--paper) 38r
 .sync-button:hover > span:last-child { transform: translateX(3px); }
 .sync-status { display: flex; gap: 7px; align-items: flex-start; padding: 8px; margin: -3px 0 12px; border: 1px solid rgba(255, 205, 147, .2); border-radius: 9px; background: rgba(157, 89, 28, .16); color: #f6d7a7; }
 .sync-status > span { display: grid; place-items: center; flex: 0 0 15px; width: 15px; height: 15px; border-radius: 50%; background: #e8b46f; color: #543318; font-weight: 900; font-size: 10px; }
+.scan-mode { display: grid; gap: 6px; margin: 0 0 12px; color: #a9c6b3; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+.scan-mode select { width: 100%; min-height: 34px; padding: 0 9px; border: 1px solid rgba(221,255,229,.16); border-radius: 9px; background: rgba(0,0,0,.12); color: #e0f5e4; color-scheme: dark; font: inherit; letter-spacing: normal; text-transform: none; }
+.scan-mode select option { background: #103d2d; color: #e0f5e4; }
+.scan-progress { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 12px; margin: -3px 0 12px; color: #9fbea9; font-size: 10px; }
+.scan-progress span { white-space: nowrap; }
+.scan-progress strong { color: #e5f5e9; font-size: 11px; }
+.scan-progress small { margin-left: auto; color: #789b85; font-size: 9px; }
 .sync-link { color: #b7f1c6; }
 .profile { position: relative; z-index: 1; display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; column-gap: 10px; border-top: 1px solid rgba(221, 255, 229, .1); padding: 18px 8px 0; }
 .profile-copy { min-width: 0; display: grid; gap: 4px; align-content: center; }
@@ -226,7 +240,45 @@ body { background: radial-gradient(circle at 68% 0%, #ffffff 0, var(--paper) 38r
 .profile-action:hover { color: #e6fff0; }
 .profile-action svg { width: 17px; height: 17px; }
 
-.main { min-height: 100vh; padding: 42px clamp(22px, 5vw, 74px) 64px; }
+/* Capture -> contact -> draft workflow */
+.capture-workflow-modal { width: min(680px, 100%); }
+.workflow-steps { display: flex; gap: 8px; padding: 13px 24px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; font-weight: 800; letter-spacing: .03em; }
+.workflow-steps span { padding: 5px 9px; border-radius: 999px; background: #f3f7f3; }
+.workflow-steps span.active { color: var(--forest); background: var(--mint); }
+.workflow-steps span.complete { color: #6b856f; }
+.workflow-error { margin: 16px 24px 0; }
+.draft-area.compact { min-height: 100px; }
+.workflow-loading { display: grid; place-items: center; gap: 10px; min-height: 210px; text-align: center; }
+.workflow-loading p { max-width: 390px; margin: 0; color: var(--muted); }
+.loading-ring { width: 30px; height: 30px; border: 3px solid #dcebe0; border-top-color: var(--forest); border-radius: 50%; animation: jobflow-spin .8s linear infinite; }
+@keyframes jobflow-spin { to { transform: rotate(360deg); } }
+.workflow-context { display: grid; gap: 4px; padding: 13px; margin-bottom: 16px; border: 1px solid var(--line); border-radius: 10px; background: #f8fbf8; }
+.workflow-context strong { font-size: 15px; }
+.workflow-context span, .workflow-context small { color: var(--muted); overflow-wrap: anywhere; }
+.workflow-context small { font-size: 11px; }
+.contact-results { display: grid; gap: 10px; max-height: 390px; overflow-y: auto; padding-right: 3px; }
+.contact-result { display: grid; gap: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: #fbfefb; }
+.contact-result-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.contact-result-head > div { display: grid; gap: 4px; min-width: 0; }
+.contact-result-head span, .contact-source { color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.contact-email { color: var(--forest); font-weight: 750; overflow-wrap: anywhere; }
+.contact-result a { color: var(--forest); font-size: 11px; font-weight: 750; }
+.contact-evidence { margin: 0; padding-left: 10px; border-left: 2px solid #b5dcc2; color: #456253; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.contact-source { font-size: 10px; }
+.verification-badge { flex: 0 0 auto; padding: 4px 7px; border-radius: 999px; font-size: 9px; font-weight: 850; letter-spacing: .04em; }
+.verification-badge.verified { color: #1e6943; background: #dff3e5; }
+.verification-badge.needs_review, .verification-badge.discovered { color: #8b5e1e; background: #fff0d8; }
+.verification-badge.rejected, .verification-badge.expired { color: #994d44; background: #f9e1dd; }
+.verification-badge.unknown { color: var(--muted); background: #eef2ee; }
+.draft-safety { display: flex; gap: 8px; align-items: center; padding: 9px 11px; margin-bottom: 16px; border-radius: 8px; color: #246345; background: #eaf7ed; font-size: 11px; font-weight: 750; }
+.evidence-panel { display: grid; gap: 6px; padding: 12px; margin: 2px 0 14px; border: 1px solid #d9e9dc; border-radius: 9px; background: #f7fbf7; }
+.evidence-panel strong { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.evidence-panel p { margin: 0; color: #4c6655; font-size: 11px; line-height: 1.4; overflow-wrap: anywhere; }
+.draft-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .loading-ring { animation: none; } }
+@media (max-width: 600px) { .workflow-steps, .modal-body, .modal-head, .modal-foot { padding-left: 17px; padding-right: 17px; } .workflow-error { margin-left: 17px; margin-right: 17px; } .contact-result-head { display: grid; } .verification-badge { justify-self: start; } .draft-actions > button { flex: 1; } }
+
+.main { min-width: 0; min-height: 0; height: 100vh; overflow-y: auto; overscroll-behavior: contain; padding: 42px clamp(22px, 5vw, 74px) 64px; }
 .topbar { margin-bottom: 26px; }
 .eyebrow { display: flex; align-items: center; gap: 8px; color: #4b7660; font-size: 10px; letter-spacing: .13em; }
 .eyebrow-mark { width: 6px; height: 6px; border-radius: 50%; background: #e1a453; box-shadow: 0 0 0 4px #f7e7cc; }
@@ -305,8 +357,9 @@ h1 { font-size: clamp(34px, 4.2vw, 57px); line-height: .98; letter-spacing: -.06
   .signal-orbit { transform: scale(.85); transform-origin: center; }
 }
 @media (max-width: 640px) {
-  .sidebar { position: sticky; top: 0; height: 64px; max-height: 64px; overflow: hidden; }
-  .main { padding: 28px 15px 40px; }
+  .app-shell { height: auto; min-height: 100vh; overflow: visible; }
+  .sidebar { position: sticky; top: 0; height: 64px; max-height: 64px; overflow: clip; }
+  .main { height: auto; min-height: calc(100vh - 64px); overflow: visible; padding: 28px 15px 40px; }
   .desktop-break { display: none; }
   .top-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .top-actions .primary-button { display: none; }
@@ -369,12 +422,65 @@ h1 { font-size: clamp(34px, 4.2vw, 57px); line-height: .98; letter-spacing: -.06
 .gmail-backfill-error { margin: 13px 0 0 40px; color: var(--red); font-size: 11px; line-height: 1.4; }
 .gmail-backfill-status-empty { display: flex; align-items: center; gap: 11px; }
 .gmail-backfill-status-empty p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
-.gmail-review-item { display: flex; justify-content: space-between; gap: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
-.gmail-review-item-main { min-width: 0; }
+.gmail-review-item { display: flex; min-width: 0; width: 100%; justify-content: space-between; gap: 18px; padding: 14px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+.gmail-review-item-main { min-width: 0; overflow-wrap: anywhere; }
+.review-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.message-direction { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; padding: 4px 7px; border: 1px solid; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .01em; white-space: nowrap; }
+.message-direction.inbound { border-color: #b8dcc4; background: #edf8f0; color: #216844; }
+.message-direction.outbound { border-color: #c8d9ed; background: #f0f6fc; color: #2c5f91; }
+.message-direction.unknown { border-color: #d9d6cb; background: #f7f5ef; color: #766f61; }
 .gmail-review-detail { margin-top: 5px; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.review-reasons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+.reason-pill { display: inline-flex; align-items: center; min-height: 21px; padding: 3px 7px; border: 1px solid #ead9b6; border-radius: 999px; background: #fff8e9; color: #93651d; font-size: 10px; font-weight: 750; letter-spacing: .01em; text-transform: capitalize; }
+.thread-detail { margin-top: 11px; border-top: 1px solid rgba(213, 225, 214, .9); }
+.thread-detail summary { display: flex; align-items: center; justify-content: space-between; padding: 9px 0 2px; color: var(--forest); cursor: pointer; font-size: 11px; font-weight: 800; list-style: none; }
+.thread-detail summary::-webkit-details-marker { display: none; }
+.thread-detail summary span { transition: transform .18s ease; }
+.thread-detail[open] summary span { transform: rotate(90deg); }
+.thread-detail-body { padding: 8px 0 2px; }
+.thread-detail-label { color: var(--muted); font-size: 10px; line-height: 1.4; }
+.citation-list { display: grid; gap: 7px; margin-top: 8px; }
+.citation { margin: 0; padding: 8px 10px; border-left: 2px solid #b9ddc5; background: #f7fbf7; color: #40594a; font-size: 11px; line-height: 1.45; }
+.citation-source { display: block; margin-bottom: 3px; color: #789684; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.thread-detail-empty { margin: 8px 0 0; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.thread-load-button { width: 100%; margin-top: 10px; }
+.thread-detail-error { margin: 8px 0 0; color: var(--red); font-size: 11px; }
+.live-thread { display: grid; gap: 8px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.live-message { display: grid; gap: 5px; padding: 10px; border: 1px solid var(--line); border-radius: 9px; background: #fff; }
+.live-message.sent { background: #f2f7fc; }
+.live-message.received { background: #f4faf5; }
+.live-message-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.live-message time { color: var(--muted); font-size: 9px; }
+.live-message strong { color: var(--ink); font-size: 11px; }
+.live-message p { margin: 0; color: #40594a; font-size: 11px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
 .gmail-review-buttons { display: flex; gap: 7px; }
 .gmail-review-buttons .primary-button, .gmail-review-buttons .outline-button, .gmail-review-item > .review-actions > .primary-button { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
 .gmail-review-item .review-actions { align-items: flex-start; }
+.review-scroll { max-height: min(68vh, 720px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border-top: 1px solid var(--line); }
+.review-scroll:focus-within { outline: 2px solid rgba(39, 103, 67, .28); outline-offset: -2px; }
+.review-pagination { display: grid; place-items: center; gap: 8px; padding: 15px 21px 20px; color: var(--muted); font-size: 11px; text-align: center; }
+.review-pagination .outline-button { min-width: 150px; }
+.content-grid { align-items: stretch; }
+.content-grid > div { min-height: 0; }
+.recommendation-list { display: grid; gap: 8px; padding: 0 21px 21px; }
+.recommendation-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; padding: 12px; border: 1px solid var(--line); border-radius: 11px; background: var(--paper); }
+.recommendation-item > div { min-width: 0; display: grid; gap: 3px; }
+.recommendation-item strong { color: var(--ink); font-size: 12px; overflow-wrap: anywhere; }
+.recommendation-item span { color: var(--muted); font-size: 10px; }
+.recommendation-item .action-type { align-self: start; }
+.recommendation-item a { color: var(--forest); font-size: 10px; font-weight: 800; text-decoration: none; }
+.recommendation-item a:hover { text-decoration: underline; }
+.gmail-review-queue { display: flex; min-height: 480px; height: min(760px, calc(100vh - 190px)); flex-direction: column; }
+.gmail-review-queue .review-scroll { flex: 1 1 auto; min-height: 0; max-height: none; }
+.gmail-review-queue { container-type: inline-size; }
+
+@container (max-width: 430px) {
+  .gmail-review-item { display: grid; gap: 13px; }
+  .review-meta { align-items: flex-start; flex-direction: column; gap: 7px; }
+  .gmail-review-item .review-actions, .gmail-review-buttons { width: 100%; }
+  .gmail-review-buttons > button { flex: 1; min-width: 0; }
+  .gmail-review-item > .review-actions > .primary-button { width: 100%; }
+}
 
 @media (max-width: 640px) {
   .gmail-backfill-status { padding: 16px; }
@@ -383,6 +489,13 @@ h1 { font-size: clamp(34px, 4.2vw, 57px); line-height: .98; letter-spacing: -.06
   .gmail-review-item .review-actions, .gmail-review-buttons { width: 100%; }
   .gmail-review-buttons > button { flex: 1; }
   .gmail-review-item > .review-actions > .primary-button { width: 100%; }
+  .gmail-review-queue { height: 62vh; min-height: 420px; }
 }
 
 @media (prefers-reduced-motion: reduce) { .gmail-backfill-progress span { transition: none; } }
+
+/* Mobile overflow guard: the compact header must never widen the document. */
+@media (max-width: 640px) {
+  .sidebar .profile { display: none; }
+  .filter-row { flex-wrap: wrap; overflow-x: visible; }
+}

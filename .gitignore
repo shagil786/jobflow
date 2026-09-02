@@ -12,3 +12,5 @@ data/
 infra/localstack/.localstack/
 coverage/
 .worktrees/
+**/.DS_Store
+infra/localstack/.postgres/

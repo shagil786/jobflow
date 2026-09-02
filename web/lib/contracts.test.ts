@@ -7,6 +7,7 @@ import type {
   MessageDirection,
   MessageIntent,
   SafeGmailMessageV1,
+  ReviewReason,
 } from "../../contracts/src/index";
 
 describe("versioned evidence and identity contracts", () => {
@@ -84,7 +85,8 @@ describe("versioned evidence and identity contracts", () => {
       evidence: EvidenceSpanV1[];
       missingFields: string[];
       contradictions: string[];
-      requiresReview: true;
+      reviewReasons: ReviewReason[];
+      requiresReview: boolean;
       classifierVersion: string;
       contentHash: string;
     }>();

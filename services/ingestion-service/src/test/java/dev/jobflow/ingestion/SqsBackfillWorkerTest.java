@@ -20,6 +20,7 @@ class SqsBackfillWorkerTest {
     @Test
     void acknowledgesOnlyAfterSuccessfulProcessing() {
         BackfillQueue.QueuedBatch queued = queued(1);
+        when(lifecycle.claim(queued.payload())).thenReturn(true);
         worker.process(queued);
 
         verify(lifecycle).claim(queued.payload());
@@ -31,6 +32,7 @@ class SqsBackfillWorkerTest {
     @Test
     void retriesRetryableFailuresWithoutAcknowledging() {
         BackfillQueue.QueuedBatch queued = queued(1);
+        when(lifecycle.claim(queued.payload())).thenReturn(true);
         doThrow(new SqsBackfillWorker.RetryableBatchException("GMAIL_RATE_LIMITED"))
                 .when(processor).process(queued.payload());
 
@@ -44,6 +46,7 @@ class SqsBackfillWorkerTest {
     @Test
     void deadLettersAfterConfiguredAttemptLimit() {
         BackfillQueue.QueuedBatch queued = queued(3);
+        when(lifecycle.claim(queued.payload())).thenReturn(true);
         doThrow(new SqsBackfillWorker.RetryableBatchException("GMAIL_UNAVAILABLE"))
                 .when(processor).process(queued.payload());
 
@@ -57,6 +60,7 @@ class SqsBackfillWorkerTest {
     @Test
     void doesNotRetryNonRetryableFailures() {
         BackfillQueue.QueuedBatch queued = queued(1);
+        when(lifecycle.claim(queued.payload())).thenReturn(true);
         doThrow(new SqsBackfillWorker.NonRetryableBatchException("INVALID_BATCH"))
                 .when(processor).process(queued.payload());
 
@@ -65,6 +69,31 @@ class SqsBackfillWorkerTest {
         verify(lifecycle).failed(queued.payload(), "INVALID_BATCH");
         verify(queue).acknowledge(queued.receipt());
         org.mockito.Mockito.verify(queue, org.mockito.Mockito.never()).retry(queued.receipt(), Duration.ofSeconds(20));
+    }
+
+    @Test
+    void acknowledgesAndSkipsAStaleMessageWhoseBatchWasDeleted() {
+        BackfillQueue.QueuedBatch queued = queued(1);
+        doThrow(new IllegalArgumentException("GMAIL_BACKFILL_BATCH_NOT_FOUND"))
+                .when(lifecycle).claim(queued.payload());
+
+        worker.process(queued);
+
+        verify(queue).acknowledge(queued.receipt());
+        org.mockito.Mockito.verifyNoInteractions(processor);
+        org.mockito.Mockito.verify(lifecycle, org.mockito.Mockito.never()).succeeded(queued.payload());
+    }
+
+    @Test
+    void acknowledgesAndSkipsDuplicateDeliveryAfterClaimIsRejected() {
+        BackfillQueue.QueuedBatch queued = queued(1);
+        when(lifecycle.claim(queued.payload())).thenReturn(false);
+
+        worker.process(queued);
+
+        verify(queue).acknowledge(queued.receipt());
+        org.mockito.Mockito.verifyNoInteractions(processor);
+        org.mockito.Mockito.verify(lifecycle, org.mockito.Mockito.never()).succeeded(queued.payload());
     }
 
     private static BackfillQueue.QueuedBatch queued(int attempt) {

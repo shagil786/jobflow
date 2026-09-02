@@ -48,6 +48,16 @@ class GmailCandidateFilterTest {
         assertThat(decision.company()).isEmpty();
     }
 
+    @Test
+    void recognizesCommonJobLanguageWithoutRequiringARecruiterSender() {
+        GmailCandidateFilter.CandidateDecision decision = filter.evaluate(message(
+                "People Operations <people@example.com>",
+                "A career opportunity for you"));
+
+        assertThat(decision.candidate()).isTrue();
+        assertThat(decision.signals()).contains("job-context");
+    }
+
     private static GmailMessageMetadata message(String sender, String subject) {
         return new GmailMessageMetadata(
                 UUID.randomUUID(), "tenant", "user", "message", "thread", sender, null,

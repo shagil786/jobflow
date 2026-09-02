@@ -9,7 +9,9 @@
     <module>identity-service</module>
     <module>job-service</module>
     <module>ingestion-service</module>
+    <module>ai-context-service</module>
     <module>ai-draft-service</module>
+    <module>contact-discovery-service</module>
     <module>notification-service</module>
   </modules>
   <properties>
